@@ -12,13 +12,13 @@ class SeatHoldRequest(BaseModel):
 
 
 class SeatHoldResponse(BaseModel):
-    seat_id: str
+    seat_id: UUID
     status: str
     locked_until: datetime
 
 
 class SeatMapSeatResponse(APIModel):
-    id: str
+    id: UUID
     label: str
     row_index: int
     col_index: int
@@ -28,7 +28,7 @@ class SeatMapSeatResponse(APIModel):
 
 
 class SeatMapZoneResponse(APIModel):
-    id: str
+    id: UUID
     name: str
     rows: int
     cols: int
@@ -39,5 +39,5 @@ class SeatMapZoneResponse(APIModel):
 
 
 class SeatMapResponse(APIModel):
-    event_id: str
+    event_id: UUID
     zones: list[SeatMapZoneResponse]

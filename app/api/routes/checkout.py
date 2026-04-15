@@ -22,7 +22,7 @@ router = APIRouter(tags=["checkout"])
 @router.post("/checkout")
 async def checkout(payload: CheckoutRequest, db: DbSession, user: CurrentUser):
     try:
-        order, tickets = await CheckoutService(db).checkout(payload.seat_ids, user.id, payload.event_id)
+        order, tickets = await CheckoutService(db).checkout(payload.seat_ids, str(user.id), payload.event_id)
         return success_response(CheckoutResponse(
             order_id=order.id,
             total_amount=float(order.total_amount),
@@ -44,7 +44,7 @@ async def checkout(payload: CheckoutRequest, db: DbSession, user: CurrentUser):
 
 @router.get("/my-tickets")
 def my_tickets(db: DbSession, user: CurrentUser):
-    tickets = CheckoutService(db).list_my_tickets(user.id)
+    tickets = CheckoutService(db).list_my_tickets(str(user.id))
     return success_response([
         TicketDetailResponse(
             ticket_id=ticket.id,
@@ -81,7 +81,7 @@ def my_tickets(db: DbSession, user: CurrentUser):
 @router.get("/tickets/{ticket_id}")
 def ticket_detail(ticket_id: str, db: DbSession, user: CurrentUser):
     try:
-        ticket = CheckoutService(db).get_ticket(ticket_id, user.id)
+        ticket = CheckoutService(db).get_ticket(ticket_id, str(user.id))
         return success_response(
             TicketDetailResponse(
                 ticket_id=ticket.id,
@@ -119,7 +119,7 @@ def ticket_detail(ticket_id: str, db: DbSession, user: CurrentUser):
 @router.get("/tickets/{ticket_id}/qr")
 def ticket_qr(ticket_id: str, db: DbSession, user: CurrentUser):
     try:
-        ticket = CheckoutService(db).get_ticket(ticket_id, user.id)
+        ticket = CheckoutService(db).get_ticket(ticket_id, str(user.id))
         return Response(content=base64.b64decode(ticket.qr_code), media_type="image/png")
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

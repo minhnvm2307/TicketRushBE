@@ -11,7 +11,7 @@ router = APIRouter(prefix="/seats", tags=["Seats"])
 @router.post("/{seat_id}/hold", response_model=SeatHoldResponse)
 async def hold_seat(seat_id: str, payload: SeatHoldRequest, db: DbSession, user: CurrentUser):
     try:
-        result = await SeatService(db).hold(seat_id, user.id, payload.event_id)
+        result = await SeatService(db).hold(seat_id, str(user.id), payload.event_id)
         return success_response(result)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
@@ -22,7 +22,7 @@ async def hold_seat(seat_id: str, payload: SeatHoldRequest, db: DbSession, user:
 @router.delete("/{seat_id}/hold")
 async def release_seat(seat_id: str, payload: SeatHoldRequest, db: DbSession, user: CurrentUser):
     try:
-        await SeatService(db).release(seat_id, user.id, payload.event_id)
+        await SeatService(db).release(seat_id, str(user.id), payload.event_id)
         return success_response({"message": "Seat released successfully"})
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))

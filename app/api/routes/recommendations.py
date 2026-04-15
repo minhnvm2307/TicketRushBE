@@ -10,4 +10,4 @@ router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 
 @router.get("/me")
 def recommendations(db: DbSession, user: CurrentUser):
-    return success_response(RecommendationService(db).recommend_for_user(user.id))
+    return success_response(RecommendationService(db).recommend_for_user(str(user.id)))

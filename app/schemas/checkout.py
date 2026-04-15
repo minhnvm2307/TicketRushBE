@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -7,21 +8,21 @@ from app.schemas.common import APIModel
 
 
 class CheckoutRequest(BaseModel):
-    seat_ids: list[str]
-    event_id: str
+    seat_ids: list[UUID]
+    event_id: UUID
 
 
 class TicketItemResponse(APIModel):
-    ticket_id: str
-    event_id: str
-    seat_id: str
+    ticket_id: UUID
+    event_id: UUID
+    seat_id: UUID
     qr_code: str
     status: TicketStatus
     purchased_at: datetime
 
 
 class TicketEventResponse(APIModel):
-    id: str
+    id: UUID
     title: str
     slug: str
     venue: str
@@ -31,14 +32,14 @@ class TicketEventResponse(APIModel):
 
 
 class TicketZoneResponse(APIModel):
-    id: str
+    id: UUID
     name: str
     color: str
     price: float
 
 
 class TicketSeatResponse(APIModel):
-    id: str
+    id: UUID
     label: str
     row_index: int
     col_index: int
@@ -46,7 +47,7 @@ class TicketSeatResponse(APIModel):
 
 
 class TicketDetailResponse(APIModel):
-    ticket_id: str
+    ticket_id: UUID
     qr_code: str
     status: TicketStatus
     purchased_at: datetime
@@ -56,6 +57,6 @@ class TicketDetailResponse(APIModel):
 
 
 class CheckoutResponse(APIModel):
-    order_id: str
+    order_id: UUID
     total_amount: float
     tickets: list[TicketItemResponse]

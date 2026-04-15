@@ -10,6 +10,7 @@ app/api/routes/admin.py
 app/api/routes/auth.py
 app/api/routes/checkout.py
 app/api/routes/events.py
+app/api/routes/queue.py
 app/api/routes/recommendations.py
 app/api/routes/seats.py
 app/api/routes/ws.py
@@ -45,6 +46,7 @@ app/schemas/checkout.py
 app/schemas/common.py
 app/schemas/dashboard.py
 app/schemas/event.py
+app/schemas/queue.py
 app/schemas/recommendation.py
 app/schemas/seat.py
 app/services/__init__.py
@@ -53,11 +55,13 @@ app/services/bootstrap.py
 app/services/checkout.py
 app/services/dashboard.py
 app/services/events.py
+app/services/queue.py
 app/services/realtime.py
 app/services/recommendation.py
 app/services/seats.py
-app/workers/__init__.py
-app/workers/release_expired_holds.py
+app/workers/process_queue.py
+tests/test_auth.py
+tests/test_queue.py
 ticketrush_backend.egg-info/PKG-INFO
 ticketrush_backend.egg-info/SOURCES.txt
 ticketrush_backend.egg-info/dependency_links.txt

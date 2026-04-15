@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -57,7 +58,7 @@ class EventUpdateRequest(EventCreateRequest):
 
 
 class SeatResponse(APIModel):
-    id: str
+    id: UUID
     label: str
     row_index: int
     col_index: int
@@ -67,7 +68,7 @@ class SeatResponse(APIModel):
 
 
 class ZoneResponse(APIModel):
-    id: str
+    id: UUID
     name: str
     rows: int
     cols: int
@@ -78,7 +79,7 @@ class ZoneResponse(APIModel):
 
 
 class EventResponse(APIModel):
-    id: str
+    id: UUID
     title: str
     slug: str
     description: str
@@ -96,7 +97,7 @@ class EventResponse(APIModel):
 
 
 class EventListItem(APIModel):
-    id: str
+    id: UUID
     title: str
     slug: str
     start_time: datetime

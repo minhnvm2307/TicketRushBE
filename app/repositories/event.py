@@ -68,3 +68,16 @@ class EventRepository:
             .where(SeatZone.event_id == event_id, Seat.status == SeatStatus.SOLD)
         )
         return bool(self.db.scalar(stmt))
+
+    def list_active_for_queue_processing(self) -> list[Event]:
+        """
+        Returns a list of active, published events that have not ended yet.
+        This is used by the queue processing worker.
+        """
+        now = datetime.now()
+        stmt = select(Event).where(
+            Event.status == EventStatus.PUBLISHED,
+            Event.end_time > now,
+            Event.deleted_at.is_(None)
+        )
+        return list(self.db.scalars(stmt).all())
