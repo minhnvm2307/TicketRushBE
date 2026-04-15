@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.order import Order
 from app.models.seat import Seat, SeatZone
 from app.models.ticket import Ticket
-from app.models.event import Event
 
 
 class OrderRepository:

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.deps import AdminUser, CurrentUser, DbSession
+from app.api.deps import CurrentUser, DbSession
 from app.core.responses import success_response
-from app.schemas.event import SeatZonePayload
+# from app.schemas.event import SeatZonePayload
 from app.schemas.seat import SeatHoldRequest, SeatHoldResponse
 from app.services.seats import SeatService
 

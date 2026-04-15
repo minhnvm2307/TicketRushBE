@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from app.api.deps import CurrentUser, DbSession
 from app.core.responses import success_response
-from app.schemas.recommendation import RecommendationItem
+# from app.schemas.recommendation import RecommendationItem
 from app.services.recommendation import RecommendationService
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])

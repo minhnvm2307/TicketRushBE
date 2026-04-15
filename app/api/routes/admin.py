@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import AdminUser, DbSession
 from app.core.responses import success_response
-from app.schemas.dashboard import DashboardResponse, DemographicsResponse
+# from app.schemas.dashboard import DashboardResponse, DemographicsResponse
 from app.schemas.event import EventCreateRequest, SeatZonePayload
 from app.services.dashboard import DashboardService
 from app.services.events import EventService

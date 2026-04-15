@@ -3,7 +3,7 @@ from datetime import date
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from app.models.order import Order, OrderItem
+from app.models.order import OrderItem
 from app.models.ticket import Ticket
 from app.models.user import User
 
