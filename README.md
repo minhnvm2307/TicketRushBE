@@ -39,8 +39,8 @@ docker compose up -d
 Pull a pre-built API image from the registry:
 
 > ```bash
-> docker pull minhnvm2307/ticketrush:tagname
-> # Then in docker-compose.yml replace `build: .` with `image: docker pull minhnvm2307/ticketrush:tagname`
+> docker pull minhnvm2307/ticketrush:latest
+> # Then in docker-compose.yml replace `build: .` with `image: docker pull minhnvm2307/ticketrush:latest`
 > docker compose up -d
 > ```
 
