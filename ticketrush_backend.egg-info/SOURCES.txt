@@ -16,8 +16,10 @@ app/api/routes/seats.py
 app/api/routes/ws.py
 app/core/__init__.py
 app/core/config.py
+app/core/exceptions.py
 app/core/logging.py
 app/core/redis.py
+app/core/responses.py
 app/core/security.py
 app/core/telemetry.py
 app/db/__init__.py
@@ -43,6 +45,7 @@ app/repositories/user.py
 app/schemas/__init__.py
 app/schemas/auth.py
 app/schemas/checkout.py
+app/schemas/common.py
 app/schemas/dashboard.py
 app/schemas/event.py
 app/schemas/recommendation.py
