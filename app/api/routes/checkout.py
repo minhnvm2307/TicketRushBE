@@ -22,7 +22,7 @@ router = APIRouter(tags=["checkout"])
 @router.post("/checkout")
 async def checkout(payload: CheckoutRequest, db: DbSession, user: CurrentUser):
     try:
-        order, tickets = await CheckoutService(db).checkout(payload.seat_ids, user.id)
+        order, tickets = await CheckoutService(db).checkout(payload.seat_ids, user.id, payload.event_id)
         return success_response(CheckoutResponse(
             order_id=order.id,
             total_amount=float(order.total_amount),

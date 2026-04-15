@@ -10,7 +10,6 @@ app/api/routes/admin.py
 app/api/routes/auth.py
 app/api/routes/checkout.py
 app/api/routes/events.py
-app/api/routes/queue.py
 app/api/routes/recommendations.py
 app/api/routes/seats.py
 app/api/routes/ws.py
@@ -30,7 +29,6 @@ app/models/enums.py
 app/models/event.py
 app/models/interaction.py
 app/models/order.py
-app/models/queue.py
 app/models/seat.py
 app/models/ticket.py
 app/models/user.py
@@ -39,7 +37,6 @@ app/repositories/analytics.py
 app/repositories/event.py
 app/repositories/interaction.py
 app/repositories/order.py
-app/repositories/queue.py
 app/repositories/seat.py
 app/repositories/user.py
 app/schemas/__init__.py
@@ -56,7 +53,6 @@ app/services/bootstrap.py
 app/services/checkout.py
 app/services/dashboard.py
 app/services/events.py
-app/services/queue.py
 app/services/realtime.py
 app/services/recommendation.py
 app/services/seats.py

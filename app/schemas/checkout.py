@@ -8,6 +8,7 @@ from app.schemas.common import APIModel
 
 class CheckoutRequest(BaseModel):
     seat_ids: list[str]
+    event_id: str
 
 
 class TicketItemResponse(APIModel):

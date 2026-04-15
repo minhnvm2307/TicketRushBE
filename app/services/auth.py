@@ -35,7 +35,7 @@ class AuthService:
         user = self.users.get_by_email(payload.email)
         if not user or not verify_password(payload.password, user.password_hash):
             raise ValueError("invalid email or password")
-        return create_access_token(subject=user.id, role=user.role.value)
+        return create_access_token(subject=user.id)
 
     def me(self, user_id: str) -> User:
         user = self.users.get_by_id(user_id)

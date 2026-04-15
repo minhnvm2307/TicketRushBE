@@ -2,41 +2,40 @@ from enum import StrEnum
 
 
 class UserRole(StrEnum):
-    CUSTOMER = "customer"
-    ADMIN = "admin"
+    CUSTOMER = "CUSTOMER"
+    ADMIN = "ADMIN"
 
 
 class Gender(StrEnum):
-    MALE = "male"
-    FEMALE = "female"
-    OTHER = "other"
+    MALE = "MALE"
+    FEMALE = "FEMALE"
+    OTHER = "OTHER"
 
 
 class EventStatus(StrEnum):
-    DRAFT = "draft"
-    PUBLISHED = "published"
-    CANCELLED = "cancelled"
+    DRAFT = "DRAFT"
+    PUBLISHED = "PUBLISHED"
+    CANCELLED = "CANCELLED"
 
 
 class SeatStatus(StrEnum):
-    AVAILABLE = "available"
-    LOCKED = "locked"
-    SOLD = "sold"
+    AVAILABLE = "AVAILABLE"
+    SOLD = "SOLD"
 
 
 class TicketStatus(StrEnum):
-    VALID = "valid"
-    USED = "used"
-    REFUNDED = "refunded"
+    VALID = "VALID"
+    USED = "USED"
+    REFUNDED = "REFUNDED"
 
 
 class OrderStatus(StrEnum):
-    PENDING = "pending"
-    PAID = "paid"
-    CANCELLED = "cancelled"
+    PENDING = "PENDING"
+    PAID = "PAID"
+    CANCELLED = "CANCELLED"
 
 
 class InteractionType(StrEnum):
-    VIEW = "view"
-    HOLD = "hold"
-    PURCHASE = "purchase"
+    VIEW = "VIEW"
+    HOLD = "HOLD"
+    PURCHASE = "PURCHASE"

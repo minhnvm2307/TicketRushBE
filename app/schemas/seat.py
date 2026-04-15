@@ -1,19 +1,20 @@
 from datetime import datetime
+from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.enums import SeatStatus
 from app.schemas.common import APIModel
 
 
 class SeatHoldRequest(BaseModel):
-    seat_id: str
+    event_id: UUID = Field(..., description="The ID of the event to which the seat belongs.")
 
 
 class SeatHoldResponse(BaseModel):
     seat_id: str
+    status: str
     locked_until: datetime
-    message: str
 
 
 class SeatMapSeatResponse(APIModel):

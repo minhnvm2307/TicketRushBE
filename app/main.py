@@ -11,7 +11,6 @@ from app.core.telemetry import MetricsMiddleware, metrics_response
 from app.db.session import Base, engine, SessionLocal
 from app.models import all_models  # noqa: F401
 from app.services.bootstrap import BootstrapService
-from app.workers.release_expired_holds import scheduler
 
 
 @asynccontextmanager
@@ -22,9 +21,7 @@ async def lifespan(_: FastAPI):
         BootstrapService(db).seed_admin()
     finally:
         db.close()
-    scheduler.start()
     yield
-    scheduler.shutdown(wait=False)
 
 
 configure_logging()
