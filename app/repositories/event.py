@@ -1,0 +1,70 @@
+from datetime import datetime
+
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, joinedload
+
+from app.models.event import Event, EventCategory, EventTag
+from app.models.enums import EventStatus, SeatStatus
+from app.models.seat import Seat, SeatZone
+
+
+class EventRepository:
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def list_published(
+        self, search: str | None = None, date_from: datetime | None = None, date_to: datetime | None = None
+    ) -> list[Event]:
+        stmt = (
+            select(Event)
+            .where(Event.status == EventStatus.PUBLISHED, Event.is_private.is_(False))
+            .options(joinedload(Event.categories), joinedload(Event.tags), joinedload(Event.zones))
+            .order_by(Event.start_time.asc())
+        )
+        if search:
+            stmt = stmt.where(Event.title.ilike(f"%{search}%"))
+        if date_from:
+            stmt = stmt.where(Event.start_time >= date_from)
+        if date_to:
+            stmt = stmt.where(Event.start_time <= date_to)
+        return list(self.db.scalars(stmt).unique().all())
+
+    def list_recommendable(self) -> list[Event]:
+        stmt = (
+            select(Event)
+            .where(Event.status == EventStatus.PUBLISHED)
+            .options(joinedload(Event.categories), joinedload(Event.tags))
+        )
+        return list(self.db.scalars(stmt).unique().all())
+
+    def get_by_id(self, event_id: str) -> Event | None:
+        stmt = (
+            select(Event)
+            .where(Event.id == event_id)
+            .options(
+                joinedload(Event.categories),
+                joinedload(Event.tags),
+                joinedload(Event.zones).joinedload(SeatZone.seats),
+            )
+        )
+        return self.db.scalar(stmt)
+
+    def create(self, event: Event) -> Event:
+        self.db.add(event)
+        self.db.flush()
+        return event
+
+    def delete_categories_and_tags(self, event_id: str) -> None:
+        self.db.query(EventCategory).filter(EventCategory.event_id == event_id).delete()
+        self.db.query(EventTag).filter(EventTag.event_id == event_id).delete()
+
+    def find_lowest_price(self, event_id: str) -> float | None:
+        return self.db.scalar(select(func.min(SeatZone.price)).where(SeatZone.event_id == event_id))
+
+    def has_sold_seats(self, event_id: str) -> bool:
+        stmt = (
+            select(func.count(Seat.id))
+            .join(SeatZone, Seat.zone_id == SeatZone.id)
+            .where(SeatZone.event_id == event_id, Seat.status == SeatStatus.SOLD)
+        )
+        return bool(self.db.scalar(stmt))

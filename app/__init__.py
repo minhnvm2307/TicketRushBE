@@ -1,0 +1,1 @@
+"""TicketRush backend package."""
