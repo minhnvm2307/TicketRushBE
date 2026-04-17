@@ -12,9 +12,3 @@ ticketrush_backend.egg-info
 ops
 
 docker-compose.yml
-
-tests
-
-node_modules
-dist
-build
