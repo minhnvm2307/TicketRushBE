@@ -4,7 +4,6 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.deps import DbSession
 from app.core.responses import success_response
-# from app.schemas.event import EventListItem
 from app.services.events import EventService
 from app.services.seats import SeatService
 

@@ -23,9 +23,25 @@ class BootstrapService:
             email=settings.default_admin_email,
             password_hash=hash_password(settings.default_admin_password),
             full_name=settings.default_admin_name,
-            date_of_birth=date(2000, 1, 1),
+            date_of_birth=date(2005, 1, 1),
             gender=Gender.OTHER,
             role=UserRole.ADMIN,
         )
         self.repo.create(admin)
+        self.db.commit()
+
+    def seed_user(self):
+        settings = get_settings()
+        if self.repo.get_by_email(settings.default_user_email):
+            return
+
+        user = User(
+            email=settings.default_user_email,
+            password_hash=hash_password(settings.default_user_password),
+            full_name=settings.default_user_name,
+            date_of_birth=date(2005, 1, 1),
+            gender=Gender.OTHER,
+            role=UserRole.CUSTOMER,
+        )
+        self.repo.create(user)
         self.db.commit()

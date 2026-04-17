@@ -8,10 +8,13 @@ from app.models.event import Event, EventCategory, EventTag
 from app.models.enums import EventStatus, SeatStatus
 from app.models.seat import Seat, SeatZone
 
+from app.core.config import get_settings
+
 
 class EventRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
+        self.settings = get_settings()
 
     def list_published(
         self, search: str | None = None, date_from: datetime | None = None, date_to: datetime | None = None
@@ -28,6 +31,7 @@ class EventRepository:
             search_embedding = generate_embedding(search)
             cosine_distance = Event.embedding.cosine_distance(search_embedding).label("cosine_distance")
             stmt = stmt.add_columns(cosine_distance).order_by(cosine_distance.asc())
+            stmt = stmt.where(cosine_distance <= self.settings.embedding_similarity_threshold * 2)
         else:
             stmt = stmt.order_by(Event.start_time.asc())
 

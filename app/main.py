@@ -21,6 +21,7 @@ async def lifespan(_: FastAPI):
     db = SessionLocal()
     try:
         BootstrapService(db).seed_admin()
+        BootstrapService(db).seed_user()
     finally:
         db.close()
 
