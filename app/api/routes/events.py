@@ -14,7 +14,7 @@ router = APIRouter(prefix="/events", tags=["events"])
 @router.get("")
 def list_events(
     db: DbSession,
-    search: str | None = None,
+    search: str | None = Query(default=None, description="Search by event title"),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
 ):

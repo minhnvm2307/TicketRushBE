@@ -6,6 +6,8 @@ from app.models.event import Event, EventCategory, EventTag
 from app.models.seat import Seat, SeatZone
 from app.repositories.event import EventRepository
 from app.schemas.event import EventCreateRequest, EventResponse
+from app.services.embedding import generate_embedding
+
 
 
 def slugify(value: str) -> str:
@@ -19,9 +21,17 @@ class EventService:
         self.repo = EventRepository(db)
 
     def list_public(self, search: str | None, date_from, date_to):
-        events = self.repo.list_published(search, date_from, date_to)
+        if search:
+            self.reindex_public_embeddings(force=False)
+
+        ranked_events = self.repo.list_published(search, date_from, date_to)
         response = []
-        for event in events:
+        for event, cosine_distance in ranked_events:
+            similarity_score = None
+            if cosine_distance is not None:
+                # For cosine distance in [0, 2], convert to a more intuitive similarity score in [0, 1].
+                similarity_score = max(0.0, min(1.0, 1.0 - (cosine_distance / 2.0)))
+
             response.append(
                 {
                     "id": event.id,
@@ -34,9 +44,30 @@ class EventService:
                     "lowest_price": float(self.repo.find_lowest_price(event.id) or 0),
                     "categories": [item.name for item in event.categories],
                     "tags": [item.name for item in event.tags],
+                    "cosine_distance": cosine_distance,
+                    "similarity_score": similarity_score,
                 }
             )
+
+        if search:
+            response.sort(key=lambda item: item["cosine_distance"] if item["cosine_distance"] is not None else 1e9)
         return response
+
+    def reindex_public_embeddings(self, force: bool = False) -> int:
+        events = self.repo.list_public_published() if force else self.repo.list_public_missing_embeddings()
+        if not events:
+            return 0
+
+        for event in events:
+            event.embedding = generate_embedding(self._build_embedding_text(event.title, event.description))
+
+        self.db.commit()
+        return len(events)
+
+    @staticmethod
+    def _build_embedding_text(title: str, description: str) -> str:
+        # Canonical semantic text for event vectors.
+        return f"{title.strip()} {description.strip()}".strip()
 
     def get_public_detail(self, event_id: str) -> Event:
         event = self.repo.get_by_id(event_id)
@@ -50,6 +81,7 @@ class EventService:
             slug=slugify(payload.title),
             description=payload.description,
             short_description=payload.short_description,
+            embedding=generate_embedding(self._build_embedding_text(payload.title, payload.description)),
             start_time=payload.start_time,
             end_time=payload.end_time,
             venue=payload.venue,
@@ -73,6 +105,7 @@ class EventService:
         event.slug = slugify(payload.title)
         event.description = payload.description
         event.short_description = payload.short_description
+        event.embedding = generate_embedding(self._build_embedding_text(payload.title, payload.description))
         event.start_time = payload.start_time
         event.end_time = payload.end_time
         event.venue = payload.venue

@@ -54,14 +54,13 @@ app/services/auth.py
 app/services/bootstrap.py
 app/services/checkout.py
 app/services/dashboard.py
+app/services/embedding.py
 app/services/events.py
 app/services/queue.py
 app/services/realtime.py
 app/services/recommendation.py
 app/services/seats.py
 app/workers/process_queue.py
-tests/test_auth.py
-tests/test_queue.py
 ticketrush_backend.egg-info/PKG-INFO
 ticketrush_backend.egg-info/SOURCES.txt
 ticketrush_backend.egg-info/dependency_links.txt

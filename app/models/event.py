@@ -1,5 +1,7 @@
 import uuid
 from datetime import datetime
+import numpy as np
+from pgvector.sqlalchemy import Vector
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -17,6 +19,7 @@ class Event(Base):
     slug: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     description: Mapped[str] = mapped_column(Text)
     short_description: Mapped[str] = mapped_column(String(500), default="")
+    embedding: Mapped[np.ndarray] = mapped_column(Vector(384))
     is_private: Mapped[bool] = mapped_column(default=False)
     theme: Mapped[str] = mapped_column(String(50), default="minimal")
     venue: Mapped[str] = mapped_column(String(255))

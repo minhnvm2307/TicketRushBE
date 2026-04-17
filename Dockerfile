@@ -1,14 +1,17 @@
 FROM python:3.11-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+	PYTHONUNBUFFERED=1 \
+	PIP_NO_CACHE_DIR=1 \
+	PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
 
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir .
+COPY pyproject.toml uv.lock README.md ./
 
-COPY . .
+COPY app ./app
+
+RUN pip install --upgrade pip && pip install --no-cache-dir .
 
 EXPOSE 8000
 

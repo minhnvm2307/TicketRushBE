@@ -60,10 +60,36 @@ Password: postgres
 | Service | URL | Note |
 |---------|-----|-------------|
 | API | http://localhost:8000/docs | Danh sach API va mota |
+| Embedding API | http://localhost:8081 | text-embeddings-inference (noi bo) |
 | Prometheus | http://localhost:9090 | — |
 | Grafana | http://localhost:3001 | creds: admin / admin |
 | PostgreSQL | localhost:5432 | postgres / postgres |
 | Redis | localhost:6379 | — |
+
+### 5. Embedding mode (optimized container strategy)
+
+`TicketRush` now uses a hybrid approach to keep `api` image slim:
+
+- Default (`EMBEDDING_PROVIDER=http`): API calls the dedicated `embedding` service over HTTP.
+- Optional (`EMBEDDING_PROVIDER=onnx`): API runs ONNX model locally.
+
+Recommended default for Docker:
+
+```bash
+EMBEDDING_PROVIDER=http
+EMBEDDING_SERVICE_URL=http://embedding:80
+```
+
+Optional local ONNX mode (without external embedding container):
+
+```bash
+pip install .[embedding-onnx]
+export EMBEDDING_PROVIDER=onnx
+export EMBEDDING_ONNX_MODEL_PATH=/models/model.onnx
+export EMBEDDING_ONNX_TOKENIZER_PATH=/models/tokenizer.json
+```
+
+This split removes heavy AI runtime from `ticketrush-api` by default and keeps embedding compute isolated.
 
 
 ---

@@ -107,3 +107,5 @@ class EventListItem(APIModel):
     lowest_price: float | None
     categories: list[str]
     tags: list[str]
+    cosine_distance: float | None = None
+    similarity_score: float | None = None

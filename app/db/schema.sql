@@ -18,6 +18,7 @@ SET row_security = off;
 -- ------------------------------------------------------------------------------
 -- Extension bắt buộc cho UUID (mặc định có sẵn ở PG 13+)
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "vector";
 
 -- Hàm tự động cập nhật updated_at
 CREATE OR REPLACE FUNCTION update_modified_column()
@@ -68,6 +69,7 @@ CREATE TABLE public.events (
     start_time TIMESTAMPTZ NOT NULL,
     end_time TIMESTAMPTZ NOT NULL,
     status public.event_status_enum NOT NULL DEFAULT 'DRAFT',
+    embedding vector(384),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ -- Soft delete

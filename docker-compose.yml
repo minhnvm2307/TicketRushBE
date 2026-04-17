@@ -3,23 +3,49 @@ services:
     build: .
     env_file:
       - .env
+    environment:
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-http}
+      EMBEDDING_SERVICE_URL: ${EMBEDDING_SERVICE_URL:-http://embedding:80}
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      EMBEDDING_TIMEOUT_SECONDS: ${EMBEDDING_TIMEOUT_SECONDS:-5}
     ports:
       - "8000:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - .:/app
+      - api_venv:/app/.venv
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      embedding:
+        condition: service_started
       prometheus:
         condition: service_started
     restart: unless-stopped
     networks:
       - ticketrush-net
 
+  embedding:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    command:
+      - --model-id
+      - sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+      - --port
+      - "80"
+    environment:
+      HF_HOME: /data
+    volumes:
+      - hf_cache:/data
+    ports:
+      - "8081:80"
+    restart: unless-stopped
+    networks:
+      - ticketrush-net
+
   db:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: ticketrush
       POSTGRES_USER: postgres
@@ -76,6 +102,8 @@ services:
 
 volumes:
   pg_data:
+  hf_cache:
+  api_venv:
 
 networks:
   ticketrush-net:

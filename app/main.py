@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,7 +12,7 @@ from app.core.telemetry import MetricsMiddleware, metrics_response
 from app.db.session import Base, engine, SessionLocal
 from app.models import all_models  # noqa: F401
 from app.services.bootstrap import BootstrapService
-from app.workers.process_queue import scheduler
+from app.workers.process_queue import process_queues_job
 
 
 @asynccontextmanager
@@ -22,9 +23,16 @@ async def lifespan(_: FastAPI):
         BootstrapService(db).seed_admin()
     finally:
         db.close()
-    scheduler.start()
+
+    # Start the queue processing worker in the background
+    worker_task = asyncio.create_task(process_queues_job())
     yield
-    scheduler.shutdown(wait=False)
+    # Clean up the worker task
+    worker_task.cancel()
+    try:
+        await worker_task
+    except asyncio.CancelledError:
+        pass
 
 
 configure_logging()

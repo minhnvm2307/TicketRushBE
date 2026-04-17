@@ -1,6 +1,6 @@
+import asyncio
 import logging
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -13,42 +13,68 @@ logger = logging.getLogger(__name__)
 
 async def process_queues_job():
     """
-    A background job that processes the waiting queues for all active events.
-    It moves users from the waiting queue to the access list in batches.
+    Worker xử lý hàng đợi ảo (Virtual Queue).
+    Dùng Blocking Pop (bzpopmin) với timeout ngắn để không giam tài nguyên.
     """
-    db: Session = SessionLocal()
-    redis = get_redis_client()
+    redis_client = get_redis_client()
     settings = get_settings()
-    event_repo = EventRepository(db)
 
-    try:
-        active_events = event_repo.list_active_for_queue_processing()
-        logger.info(f"Found {len(active_events)} active events to process queues for.")
+    while True:
+        # ==========================================
+        # BƯỚC 1: Lấy danh sách Event rồi ĐÓNG DB NGAY
+        # ==========================================
+        db: Session = SessionLocal()
+        try:
+            event_repo = EventRepository(db)
+            active_events = event_repo.list_active_for_queue_processing()
+        except Exception as e:
+            logger.error(f"Lỗi truy vấn DB: {e}", exc_info=True)
+            db.close()
+            await asyncio.sleep(5)
+            continue
+        finally:
+            db.close()  # CHỐT: Đóng DB trước khi đi vào block ở Redis
 
-        for event in active_events:
-            queue_key = RedisKey.event_queue(event.id)
+        if not active_events:
+            logger.info("Không có sự kiện đang Active. Ngủ 10s...")
+            await asyncio.sleep(10)
+            continue
+
+        # Convert UUID sang string để làm Redis Key
+        queue_keys = [RedisKey.event_queue(str(event.id)) for event in active_events]
+
+        # ==========================================
+        # BƯỚC 2: Rình bắt User trong Redis (Nằm vùng 3 giây)
+        # ==========================================
+        try:
+            # SỬA LỖI: timeout=3 thay vì 0. 
+            # Sau 3s không có ai, nó sẽ nhả ra để vòng lặp quay lại check DB lấy Event mới.
+            result = await asyncio.to_thread(redis_client.bzpopmin, queue_keys, timeout=3)
             
-            # Get the batch of users from the front of the queue
-            users_to_process = redis.zpopmin(queue_key, settings.queue_batch_size)
-            if not users_to_process:
+            if not result:
+                # Không ai vào hàng đợi trong 3s qua, quay lại đầu loop
                 continue
 
-            logger.info(f"Processing {len(users_to_process)} users for event {event.id}")
-
-            # Use a pipeline to grant access tokens in a single transaction
-            pipeline = redis.pipeline()
-            for user_id, _ in users_to_process:
-                access_key = RedisKey.event_access_token(event.id, user_id)
-                pipeline.set(access_key, 1, ex=settings.queue_token_ttl_minutes * 60)
+            # ==========================================
+            # BƯỚC 3: Cấp Token
+            # ==========================================
+            queue_name, (user_id, _) = result
             
-            pipeline.execute()
-            logger.info(f"Granted access to {len(users_to_process)} users for event {event.id}")
+            # SỬA LỖI: ID bây giờ là UUID, không dùng int() nữa
+            event_id_str = queue_name.decode("utf-8").split(":")[-2]
+            user_id_str = user_id.decode("utf-8")
 
-    except Exception as e:
-        logger.error(f"Error during queue processing job: {e}", exc_info=True)
-    finally:
-        db.close()
+            access_key = RedisKey.event_access_token(event_id_str, user_id_str)
+            
+            # Cấp quyền vào luồng thanh toán
+            await asyncio.to_thread(
+                redis_client.set,
+                access_key,
+                1,
+                ex=settings.queue_token_ttl_minutes * 60,
+            )
+            logger.info(f"Đã cấp Token cho User [{user_id_str}] tại Event [{event_id_str}]")
 
-
-scheduler = AsyncIOScheduler(timezone="UTC")
-scheduler.add_job(process_queues_job, "interval", seconds=10, id="process_queues_job")
+        except Exception as e:
+            logger.error(f"Lỗi khi xử lý Redis Queue: {e}", exc_info=True)
+            await asyncio.sleep(2)

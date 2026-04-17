@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.deps import AdminUser, DbSession
 from app.core.responses import success_response
@@ -14,6 +14,16 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.post("/events", status_code=status.HTTP_201_CREATED)
 def create_event(payload: EventCreateRequest, db: DbSession, _: AdminUser):
     return success_response(EventService(db).serialize(EventService(db).create(payload)), status_code=status.HTTP_201_CREATED)
+
+
+@router.post("/events/reindex-embeddings")
+def reindex_event_embeddings(
+    db: DbSession,
+    _: AdminUser,
+    force: bool = Query(default=True, description="Recompute embeddings for all public events"),
+):
+    updated = EventService(db).reindex_public_embeddings(force=force)
+    return success_response({"updated_events": updated, "force": force})
 
 
 @router.put("/events/{event_id}")

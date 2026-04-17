@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     queue_batch_size: int = Field(default=50, alias="QUEUE_BATCH_SIZE")
     queue_token_ttl_minutes: int = Field(default=15, alias="QUEUE_TOKEN_TTL_MINUTES")
 
+    embedding_provider: str = Field(default="http", alias="EMBEDDING_PROVIDER")
+    embedding_service_url: str = Field(default="http://embedding:80", alias="EMBEDDING_SERVICE_URL")
+    embedding_model_name: str = Field(default="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2", alias="EMBEDDING_MODEL_NAME")
+    embedding_timeout_seconds: float = Field(default=5.0, alias="EMBEDDING_TIMEOUT_SECONDS")
+    embedding_onnx_model_path: str = Field(default="/models/model.onnx", alias="EMBEDDING_ONNX_MODEL_PATH")
+    embedding_onnx_tokenizer_path: str = Field(default="/models/tokenizer.json", alias="EMBEDDING_ONNX_TOKENIZER_PATH")
+
     default_admin_email: str = Field(alias="DEFAULT_ADMIN_EMAIL")
     default_admin_password: str = Field(alias="DEFAULT_ADMIN_PASSWORD")
     default_admin_name: str = Field(alias="DEFAULT_ADMIN_NAME")

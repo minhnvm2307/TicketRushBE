@@ -7,4 +7,5 @@
 *.pyd
 *.sqlite3
 *.log
+*.egg-info
 TicketRushFE/
