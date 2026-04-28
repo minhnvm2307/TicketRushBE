@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from io import BytesIO
 
 import qrcode
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.redis import RedisKey, get_redis_client, loads_payload, redis_is_enabled
@@ -29,7 +30,7 @@ class CheckoutService:
         if not self.redis:
             raise ConnectionError("Redis is not enabled or connected")
 
-        # Step 1: Validate Redis locks
+        now = datetime.now(UTC)
         lock_keys = [RedisKey.seat_lock(event_id, seat_id) for seat_id in seat_ids]
         lock_data_raw = self.redis.mget(lock_keys)
 
@@ -40,27 +41,45 @@ class CheckoutService:
             if lock_data.get("user_id") != user_id:
                 raise ValueError(f"Seat {seat_ids[i]} is held by another user.")
 
-        # Step 2: Process the order in a transaction
         try:
             with self.db.begin_nested():
-                seats = self.seats.get_many_by_ids(seat_ids)
+                self.seats.release_expired_holds(now)
+                seats = self.seats.get_many_by_ids_for_update(seat_ids)
                 if len(seats) != len(seat_ids):
                     raise ValueError("One or more seats do not exist.")
+                event_ids = {str(seat.zone.event_id) for seat in seats}
+                if event_ids != {str(event_id)}:
+                    raise ValueError("One or more seats do not belong to this event.")
 
                 for seat in seats:
                     if seat.status == SeatStatus.SOLD:
                         raise ValueError(f"Seat {seat.id} is already sold.")
+                    if seat.status != SeatStatus.LOCKED:
+                        raise ValueError(f"Seat {seat.id} is not locked.")
+                    if str(seat.locked_by) != str(user_id):
+                        raise ValueError(f"Seat {seat.id} is held by another user.")
+                    if seat.locked_until is None or seat.locked_until <= now:
+                        raise ValueError(f"Lock for seat {seat.id} has expired.")
 
                 total = sum(seat.zone.price for seat in seats)
-                order = Order(user_id=user_id, status=OrderStatus.PAID, paid_at=datetime.now(UTC), total_amount=total)
+                order = Order(
+                    user_id=user_id,
+                    event_id=event_id,
+                    status=OrderStatus.PAID,
+                    paid_at=now,
+                    total_amount=total,
+                )
                 self.orders.create(order)
                 tickets: list[Ticket] = []
 
                 for seat in seats:
                     seat.status = SeatStatus.SOLD
+                    seat.locked_by = None
+                    seat.locked_until = None
                     order.items.append(
                         OrderItem(
                             event_id=seat.zone.event_id,
+                            zone_id=seat.zone.id,
                             seat_id=seat.id,
                             zone_name=seat.zone.name,
                             seat_label=seat.label,
@@ -70,6 +89,7 @@ class CheckoutService:
                     ticket = Ticket(
                         order_id=order.id,
                         event_id=seat.zone.event_id,
+                        zone_id=seat.zone.id,
                         seat_id=seat.id,
                         user_id=user_id,
                         qr_code=self._generate_qr_payload(order.id, seat.id),
@@ -83,15 +103,15 @@ class CheckoutService:
                         )
                     )
             self.db.commit()
-
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise ValueError("One or more seats were already purchased.") from exc
         except Exception:
             self.db.rollback()
             raise
 
-        # Step 3: Delete Redis locks after successful DB commit
         self.redis.delete(*lock_keys)
 
-        # Step 4: Broadcast updates
         for seat in seats:
             await connection_manager.broadcast(
                 seat.zone.event_id,

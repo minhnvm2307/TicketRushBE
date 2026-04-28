@@ -18,8 +18,24 @@ class EventStatus(StrEnum):
     CANCELLED = "CANCELLED"
 
 
+class TicketType(StrEnum):
+    FREE = "FREE"
+    PAID = "PAID"
+
+
+class SeatingType(StrEnum):
+    ASSIGNED = "ASSIGNED"
+    GENERAL_ADMISSION = "GENERAL_ADMISSION"
+
+
+class ZoneType(StrEnum):
+    ASSIGNED = "ASSIGNED"
+    GENERAL_ADMISSION = "GENERAL_ADMISSION"
+
+
 class SeatStatus(StrEnum):
     AVAILABLE = "AVAILABLE"
+    LOCKED = "LOCKED"
     SOLD = "SOLD"
 
 

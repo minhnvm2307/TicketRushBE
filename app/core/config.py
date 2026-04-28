@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     app_host: str = Field(default="0.0.0.0", alias="APP_HOST")
     app_port: int = Field(default=8000, alias="APP_PORT")
     api_prefix: str = Field(default="/api", alias="API_PREFIX")
+    cors_allow_origins: str = Field(
+        default="http://localhost:4200,http://127.0.0.1:4200",
+        alias="CORS_ALLOW_ORIGINS",
+    )
 
     database_url: str = Field(alias="DATABASE_URL")
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
@@ -41,6 +45,10 @@ class Settings(BaseSettings):
     default_user_email: str = Field(alias="DEFAULT_USER_EMAIL")
     default_user_password: str = Field(alias="DEFAULT_USER_PASSWORD")
     default_user_name: str = Field(alias="DEFAULT_USER_NAME")
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_allow_origins.split(",") if origin.strip()]
 
 
 @lru_cache

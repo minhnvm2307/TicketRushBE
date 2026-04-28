@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -12,8 +14,16 @@ class SeatRepository:
     def get_by_id(self, seat_id: str) -> Seat | None:
         return self.db.get(Seat, seat_id)
 
+    def get_by_id_for_update(self, seat_id: str) -> Seat | None:
+        stmt = select(Seat).where(Seat.id == seat_id).options(joinedload(Seat.zone)).with_for_update()
+        return self.db.scalar(stmt)
+
     def get_many_by_ids(self, seat_ids: list[str]) -> list[Seat]:
         stmt = select(Seat).where(Seat.id.in_(seat_ids)).options(joinedload(Seat.zone))
+        return list(self.db.scalars(stmt).unique().all())
+
+    def get_many_by_ids_for_update(self, seat_ids: list[str]) -> list[Seat]:
+        stmt = select(Seat).where(Seat.id.in_(seat_ids)).options(joinedload(Seat.zone)).with_for_update()
         return list(self.db.scalars(stmt).unique().all())
 
     def count_statuses_by_event(self, event_id: str) -> dict[str, int]:
@@ -39,3 +49,20 @@ class SeatRepository:
         self.db.add(zone)
         self.db.flush()
         return zone
+
+    def release_expired_holds(self, now: datetime) -> int:
+        stmt = (
+            select(Seat)
+            .where(
+                Seat.status == SeatStatus.LOCKED,
+                Seat.locked_until.is_not(None),
+                Seat.locked_until < now,
+            )
+            .with_for_update()
+        )
+        seats = list(self.db.scalars(stmt).all())
+        for seat in seats:
+            seat.status = SeatStatus.AVAILABLE
+            seat.locked_by = None
+            seat.locked_until = None
+        return len(seats)

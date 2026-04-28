@@ -34,8 +34,6 @@ class RecommendationService:
             weight = self.INTERACTION_WEIGHT[item.interaction_type.value]
             for category in event.categories:
                 profile[f"category:{category.name}"] += weight
-            for tag in event.tags:
-                profile[f"tag:{tag.name}"] += weight * float(tag.weight)
 
         recommendations = []
         for event_id, event in all_events.items():
@@ -48,11 +46,6 @@ class RecommendationService:
                 score += contribution
                 if contribution:
                     reasons.append(f"matches category '{category.name}'")
-            for tag in event.tags:
-                contribution = profile.get(f"tag:{tag.name}", 0)
-                score += contribution
-                if contribution:
-                    reasons.append(f"similar tag '{tag.name}'")
             if score > 0:
                 recommendations.append(
                     {"event_id": event.id, "title": event.title, "score": round(score, 2), "reasons": reasons[:3]}

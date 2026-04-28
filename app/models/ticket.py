@@ -16,7 +16,8 @@ class Ticket(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orders.id"), index=True)
     event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id"), index=True)
-    seat_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("seats.id"), unique=True)
+    zone_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("seat_zones.id"), index=True)
+    seat_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("seats.id"), unique=True, nullable=True)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     qr_code: Mapped[str] = mapped_column(Text)
     status: Mapped[TicketStatus] = mapped_column(Enum(TicketStatus, name="ticket_status_enum"), default=TicketStatus.VALID)
@@ -25,3 +26,4 @@ class Ticket(Base):
 
     user = relationship("User", back_populates="tickets")
     seat = relationship("Seat", back_populates="ticket")
+    zone = relationship("SeatZone")

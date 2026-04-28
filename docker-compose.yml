@@ -54,7 +54,7 @@ services:
       - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - ./app/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./app/db/schema-v2.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
       - ./app/db/data.sql:/docker-entrypoint-initdb.d/02_data.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d ticketrush"]

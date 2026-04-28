@@ -19,7 +19,10 @@ class OrderRepository:
         stmt = (
             select(Ticket)
             .where(Ticket.user_id == user_id)
-            .options(joinedload(Ticket.seat).joinedload(Seat.zone).joinedload(SeatZone.event))
+            .options(
+                joinedload(Ticket.seat).joinedload(Seat.zone).joinedload(SeatZone.event),
+                joinedload(Ticket.zone).joinedload(SeatZone.event),
+            )
             .order_by(Ticket.purchased_at.desc())
         )
         return list(self.db.scalars(stmt).unique().all())
@@ -28,6 +31,9 @@ class OrderRepository:
         stmt = (
             select(Ticket)
             .where(Ticket.id == ticket_id)
-            .options(joinedload(Ticket.seat).joinedload(Seat.zone).joinedload(SeatZone.event))
+            .options(
+                joinedload(Ticket.seat).joinedload(Seat.zone).joinedload(SeatZone.event),
+                joinedload(Ticket.zone).joinedload(SeatZone.event),
+            )
         )
         return self.db.scalar(stmt)

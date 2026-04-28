@@ -58,6 +58,7 @@ CREATE TABLE public.users (
 
 CREATE TABLE public.events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    host_id UUID NOT NULL REFERENCES public.users(id),
     title VARCHAR(255) NOT NULL,
     slug VARCHAR(255) NOT NULL UNIQUE,
     description TEXT NOT NULL,
@@ -75,19 +76,18 @@ CREATE TABLE public.events (
     deleted_at TIMESTAMPTZ -- Soft delete
 );
 
-CREATE TABLE public.event_categories (
+CREATE TABLE public.categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL,
-    CONSTRAINT uq_event_category UNIQUE (event_id, name)
+    name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE public.event_tags (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE public.event_categories (
     event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL,
-    weight NUMERIC(5,2) NOT NULL,
-    CONSTRAINT uq_event_tag UNIQUE (event_id, name)
+    category_id UUID NOT NULL REFERENCES public.categories(id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_event_category UNIQUE (event_id, category_id)
 );
 
 CREATE TABLE public.seat_zones (
@@ -183,6 +183,7 @@ CREATE INDEX ix_interactions_event_id ON public.user_event_interactions (event_i
 
 -- Filtering Indexes
 CREATE INDEX ix_events_start_end ON public.events (start_time, end_time);
+CREATE INDEX ix_events_host_id ON public.events (host_id);
 
 -- TỐI ƯU CỰC ĐẠI: Partial Index 
 -- Chỉ index những sự kiện đang PUBLISHED và CHƯA BỊ XÓA (Giúp API GET /events nhanh gấp nhiều lần)

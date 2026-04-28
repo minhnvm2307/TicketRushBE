@@ -2,7 +2,7 @@ from re import sub
 
 from sqlalchemy.orm import Session
 
-from app.models.event import Event, EventCategory, EventTag
+from app.models.event import Category, Event
 from app.models.seat import Seat, SeatZone
 from app.repositories.event import EventRepository
 from app.schemas.event import EventCreateRequest, EventResponse
@@ -42,8 +42,7 @@ class EventService:
                     "venue": event.venue,
                     "banner_url": event.banner_url,
                     "lowest_price": float(self.repo.find_lowest_price(event.id) or 0),
-                    "categories": [item.name for item in event.categories],
-                    "tags": [item.name for item in event.tags],
+                    "categories": [{"id": item.id, "name": item.name} for item in event.categories],
                     "cosine_distance": cosine_distance,
                     "similarity_score": similarity_score,
                 }
@@ -75,8 +74,9 @@ class EventService:
             raise ValueError("event not found")
         return event
 
-    def create(self, payload: EventCreateRequest) -> Event:
+    def create(self, payload: EventCreateRequest, host_id) -> Event:
         event = Event(
+            host_id=host_id,
             title=payload.title,
             slug=slugify(payload.title),
             description=payload.description,
@@ -91,16 +91,18 @@ class EventService:
             status=payload.status,
         )
         self.repo.create(event)
-        self._replace_taxonomy(event, payload.categories, payload.tags)
+        self._replace_categories(event, payload)
         self._replace_zones(event, payload.zones)
         self.db.commit()
         self.db.refresh(event)
         return self.repo.get_by_id(event.id)
 
-    def update(self, event_id: str, payload: EventCreateRequest) -> Event:
+    def update(self, event_id: str, payload: EventCreateRequest, host_id=None) -> Event:
         event = self.repo.get_by_id(event_id)
         if not event:
             raise ValueError("event not found")
+        if host_id is not None and str(event.host_id) != str(host_id):
+            raise PermissionError("forbidden")
         event.title = payload.title
         event.slug = slugify(payload.title)
         event.description = payload.description
@@ -113,15 +115,17 @@ class EventService:
         event.is_private = payload.is_private
         event.theme = payload.theme
         event.status = payload.status
-        self._replace_taxonomy(event, payload.categories, payload.tags)
+        self._replace_categories(event, payload)
         self._replace_zones(event, payload.zones)
         self.db.commit()
         return self.repo.get_by_id(event_id)
 
-    def delete(self, event_id: str) -> None:
+    def delete(self, event_id: str, host_id=None) -> None:
         event = self.repo.get_by_id(event_id)
         if not event:
             raise ValueError("event not found")
+        if host_id is not None and str(event.host_id) != str(host_id):
+            raise PermissionError("forbidden")
         if self.repo.has_sold_seats(event_id):
             raise ValueError("cannot delete event with sold seats")
         self.db.delete(event)
@@ -141,14 +145,37 @@ class EventService:
             is_private=event.is_private,
             theme=event.theme,
             status=event.status,
-            categories=[item.name for item in event.categories],
-            tags=[item.name for item in event.tags],
+            categories=[{"id": item.id, "name": item.name} for item in event.categories],
             zones=event.zones,
         )
 
-    def _replace_taxonomy(self, event: Event, categories: list[str], tags: list[str]) -> None:
-        event.categories = [EventCategory(name=name.strip().lower()) for name in categories if name.strip()]
-        event.tags = [EventTag(name=name.strip().lower()) for name in tags if name.strip()]
+    def _replace_categories(self, event: Event, payload: EventCreateRequest) -> None:
+        """
+        Preferred: payload.category_ids links to pre-created categories.
+        Backward-compatible: payload.categories will upsert by name.
+        """
+        categories: list[Category] = []
+
+        if payload.category_ids:
+            categories = list(
+                self.db.query(Category).filter(Category.id.in_(payload.category_ids)).all()
+            )
+            if len(categories) != len(set(payload.category_ids)):
+                raise ValueError("one or more categories do not exist")
+        else:
+            names = [name.strip().lower() for name in payload.categories if name.strip()]
+            if names:
+                existing = {c.name: c for c in self.db.query(Category).filter(Category.name.in_(names)).all()}
+                for name in names:
+                    cat = existing.get(name)
+                    if not cat:
+                        cat = Category(name=name)
+                        self.db.add(cat)
+                        self.db.flush()
+                        existing[name] = cat
+                    categories.append(cat)
+
+        event.categories = categories
         self.db.flush()
 
     def _replace_zones(self, event: Event, zones) -> None:

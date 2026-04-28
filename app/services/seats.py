@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.redis import RedisKey, dumps_payload, get_redis_client, loads_payload, redis_is_enabled
-from app.models.enums import InteractionType, SeatStatus
+from app.models.enums import InteractionType, SeatStatus, ZoneType
 from app.models.interaction import UserEventInteraction
 from app.models.seat import Seat, SeatZone
 from app.repositories.interaction import InteractionRepository
@@ -23,33 +23,8 @@ class SeatService:
         self.redis = get_redis_client() if redis_is_enabled() else None
 
     def get_seat_map(self, event_id: str) -> SeatMapResponse:
-        # Step 1: Fetch all structural seats from PostgreSQL
         zones = self.seats.list_by_event(event_id)
         zone_responses = [SeatMapZoneResponse.model_validate(zone) for zone in zones]
-
-        if not self.redis:
-            return SeatMapResponse(event_id=event_id, zones=zone_responses)
-
-        # Step 2: Fetch all active Redis locks for this event
-        lock_keys = self.redis.scan_iter(RedisKey.seat_lock(event_id, "*"))
-        active_locks = self.redis.mget(lock_keys)
-
-        lock_details = {}
-        for key, lock_json in zip(lock_keys, active_locks):
-            if lock_json:
-                seat_id = key.split(":")[-2]
-                lock_details[seat_id] = loads_payload(lock_json)
-
-        # Step 3: Merge Redis state into the response
-        for zone in zone_responses:
-            for seat in zone.seats:
-                if seat.status == SeatStatus.AVAILABLE and seat.id in lock_details:
-                    lock = lock_details[seat.id]
-                    seat.status = "LOCKED"
-                    seat.locked_by = lock.get("user_id")
-                    locked_at = datetime.fromisoformat(lock.get("locked_at"))
-                    seat.locked_until = locked_at + timedelta(minutes=self.settings.hold_duration_minutes)
-
         return SeatMapResponse(event_id=event_id, zones=zone_responses)
 
     async def hold(self, seat_id: str, user_id: str, event_id: str) -> dict:
@@ -57,29 +32,38 @@ class SeatService:
             raise ConnectionError("Redis is not enabled or connected")
 
         now = datetime.now(UTC)
+        locked_until = now + timedelta(minutes=self.settings.hold_duration_minutes)
         lock_key = RedisKey.seat_lock(event_id, seat_id)
-        lock_payload = dumps_payload({"user_id": user_id, "locked_at": now.isoformat()})
+        lock_payload = dumps_payload({"user_id": user_id, "locked_until": locked_until.isoformat()})
         hold_seconds = self.settings.hold_duration_minutes * 60
 
-        # Use SETNX to acquire the lock atomically
         if not self.redis.set(lock_key, lock_payload, ex=hold_seconds, nx=True):
             raise ValueError("Seat is already held by another user.")
 
         try:
-            seat = self.seats.get_by_id(seat_id)
-            if not seat or seat.zone.event_id != event_id:
-                raise ValueError("Seat not found for this event.")
-            if seat.status == SeatStatus.SOLD:
-                raise ValueError("Seat is already sold.")
+            with self.db.begin_nested():
+                self.seats.release_expired_holds(now)
+                seat = self.seats.get_by_id_for_update(seat_id)
+                if not seat or str(seat.zone.event_id) != str(event_id):
+                    raise ValueError("Seat not found for this event.")
+                if seat.zone.zone_type != ZoneType.ASSIGNED:
+                    raise ValueError("Seat holds are only supported for assigned seating.")
+                if seat.status == SeatStatus.SOLD:
+                    raise ValueError("Seat is already sold.")
+                if seat.status == SeatStatus.LOCKED:
+                    if str(seat.locked_by) == str(user_id) and seat.locked_until and seat.locked_until > now:
+                        seat.locked_until = locked_until
+                    else:
+                        raise ValueError("Seat is already held by another user.")
 
-            # Log interaction
-            self.interactions.add(
-                UserEventInteraction(user_id=user_id, event_id=event_id, interaction_type=InteractionType.HOLD)
-            )
+                seat.status = SeatStatus.LOCKED
+                seat.locked_by = user_id
+                seat.locked_until = locked_until
+
+                self.interactions.add(
+                    UserEventInteraction(user_id=user_id, event_id=event_id, interaction_type=InteractionType.HOLD)
+                )
             self.db.commit()
-
-            # Broadcast update to clients
-            locked_until = now + timedelta(minutes=self.settings.hold_duration_minutes)
             await connection_manager.broadcast(
                 event_id,
                 {
@@ -95,8 +79,8 @@ class SeatService:
             return {"seat_id": seat_id, "status": "LOCKED", "locked_until": locked_until.isoformat()}
 
         except Exception:
-            # If any database error occurs, release the Redis lock
             self.redis.delete(lock_key)
+            self.db.rollback()
             raise
 
     async def release(self, seat_id: str, user_id: str, event_id: str) -> None:
@@ -113,6 +97,22 @@ class SeatService:
 
         if lock_data.get("user_id") != user_id:
             raise ValueError("Seat is not held by the current user.")
+
+        try:
+            with self.db.begin_nested():
+                seat = self.seats.get_by_id_for_update(seat_id)
+                if not seat or str(seat.zone.event_id) != str(event_id):
+                    raise ValueError("Seat not found for this event.")
+                if str(seat.locked_by) != str(user_id):
+                    raise ValueError("Seat is not held by the current user.")
+
+                seat.status = SeatStatus.AVAILABLE
+                seat.locked_by = None
+                seat.locked_until = None
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
 
         self.redis.delete(lock_key)
 
@@ -135,6 +135,7 @@ class SeatService:
         zone = SeatZone(
             event_id=event_id,
             name=payload.name,
+            zone_type=getattr(payload, "zone_type", ZoneType.ASSIGNED),
             rows=payload.rows,
             cols=payload.cols,
             price=payload.price,

@@ -19,6 +19,46 @@ from app.services.checkout import CheckoutService
 router = APIRouter(tags=["checkout"])
 
 
+def build_ticket_detail_response(ticket) -> TicketDetailResponse:
+    zone = ticket.zone or (ticket.seat.zone if ticket.seat else None)
+    event = zone.event if zone else None
+    if zone is None or event is None:
+        raise ValueError("ticket is missing zone or event data")
+
+    seat_response = None
+    if ticket.seat:
+        seat_response = TicketSeatResponse(
+            id=ticket.seat.id,
+            label=ticket.seat.label,
+            row_index=ticket.seat.row_index,
+            col_index=ticket.seat.col_index,
+            status=ticket.seat.status.value,
+        )
+
+    return TicketDetailResponse(
+        ticket_id=ticket.id,
+        qr_code=ticket.qr_code,
+        status=ticket.status,
+        purchased_at=ticket.purchased_at,
+        seat=seat_response,
+        zone=TicketZoneResponse(
+            id=zone.id,
+            name=zone.name,
+            color=zone.color,
+            price=float(zone.price),
+        ),
+        event=TicketEventResponse(
+            id=event.id,
+            title=event.title,
+            slug=event.slug,
+            venue=event.venue,
+            start_time=event.start_time,
+            end_time=event.end_time,
+            banner_url=event.banner_url,
+        ),
+    )
+
+
 @router.post("/checkout")
 async def checkout(payload: CheckoutRequest, db: DbSession, user: CurrentUser):
     try:
@@ -30,6 +70,7 @@ async def checkout(payload: CheckoutRequest, db: DbSession, user: CurrentUser):
                 TicketItemResponse(
                     ticket_id=ticket.id,
                     event_id=ticket.event_id,
+                    zone_id=ticket.zone_id,
                     seat_id=ticket.seat_id,
                     qr_code=ticket.qr_code,
                     status=ticket.status,
@@ -40,78 +81,21 @@ async def checkout(payload: CheckoutRequest, db: DbSession, user: CurrentUser):
         ))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except ConnectionError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
 
 @router.get("/my-tickets")
 def my_tickets(db: DbSession, user: CurrentUser):
     tickets = CheckoutService(db).list_my_tickets(str(user.id))
-    return success_response([
-        TicketDetailResponse(
-            ticket_id=ticket.id,
-            qr_code=ticket.qr_code,
-            status=ticket.status,
-            purchased_at=ticket.purchased_at,
-            seat=TicketSeatResponse(
-                id=ticket.seat.id,
-                label=ticket.seat.label,
-                row_index=ticket.seat.row_index,
-                col_index=ticket.seat.col_index,
-                status=ticket.seat.status.value,
-            ),
-            zone=TicketZoneResponse(
-                id=ticket.seat.zone.id,
-                name=ticket.seat.zone.name,
-                color=ticket.seat.zone.color,
-                price=float(ticket.seat.zone.price),
-            ),
-            event=TicketEventResponse(
-                id=ticket.seat.zone.event.id,
-                title=ticket.seat.zone.event.title,
-                slug=ticket.seat.zone.event.slug,
-                venue=ticket.seat.zone.event.venue,
-                start_time=ticket.seat.zone.event.start_time,
-                end_time=ticket.seat.zone.event.end_time,
-                banner_url=ticket.seat.zone.event.banner_url,
-            ),
-        )
-        for ticket in tickets
-    ])
+    return success_response([build_ticket_detail_response(ticket) for ticket in tickets])
 
 
 @router.get("/tickets/{ticket_id}")
 def ticket_detail(ticket_id: str, db: DbSession, user: CurrentUser):
     try:
         ticket = CheckoutService(db).get_ticket(ticket_id, str(user.id))
-        return success_response(
-            TicketDetailResponse(
-                ticket_id=ticket.id,
-                qr_code=ticket.qr_code,
-                status=ticket.status,
-                purchased_at=ticket.purchased_at,
-                seat=TicketSeatResponse(
-                    id=ticket.seat.id,
-                    label=ticket.seat.label,
-                    row_index=ticket.seat.row_index,
-                    col_index=ticket.seat.col_index,
-                    status=ticket.seat.status.value,
-                ),
-                zone=TicketZoneResponse(
-                    id=ticket.seat.zone.id,
-                    name=ticket.seat.zone.name,
-                    color=ticket.seat.zone.color,
-                    price=float(ticket.seat.zone.price),
-                ),
-                event=TicketEventResponse(
-                    id=ticket.seat.zone.event.id,
-                    title=ticket.seat.zone.event.title,
-                    slug=ticket.seat.zone.event.slug,
-                    venue=ticket.seat.zone.event.venue,
-                    start_time=ticket.seat.zone.event.start_time,
-                    end_time=ticket.seat.zone.event.end_time,
-                    banner_url=ticket.seat.zone.event.banner_url,
-                ),
-            )
-        )
+        return success_response(build_ticket_detail_response(ticket))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 

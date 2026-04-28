@@ -32,7 +32,7 @@ Pull a pre-built API image from the registry:
 ```bash
 docker pull minhnvm2307/ticketrush:latest
 
-docker compose up -d -f docker-compose.prod.yml
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 ### Option 2. Rebuild your own container

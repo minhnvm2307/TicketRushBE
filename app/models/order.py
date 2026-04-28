@@ -14,6 +14,7 @@ class Order(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id"), index=True)
     status: Mapped[OrderStatus] = mapped_column(Enum(OrderStatus, name="order_status_enum"), default=OrderStatus.PENDING)
     total_amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -30,9 +31,10 @@ class OrderItem(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), index=True)
     event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id"), index=True)
-    seat_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("seats.id"), unique=True)
+    zone_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("seat_zones.id"), index=True)
+    seat_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("seats.id"), unique=True, nullable=True)
     zone_name: Mapped[str] = mapped_column(String(100))
-    seat_label: Mapped[str] = mapped_column(String(50))
+    seat_label: Mapped[str | None] = mapped_column(String(50), nullable=True)
     unit_price: Mapped[float] = mapped_column(Numeric(12, 2))
 
     order = relationship("Order", back_populates="items")

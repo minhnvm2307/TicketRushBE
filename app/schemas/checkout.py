@@ -15,7 +15,8 @@ class CheckoutRequest(BaseModel):
 class TicketItemResponse(APIModel):
     ticket_id: UUID
     event_id: UUID
-    seat_id: UUID
+    zone_id: UUID
+    seat_id: UUID | None
     qr_code: str
     status: TicketStatus
     purchased_at: datetime
@@ -51,7 +52,7 @@ class TicketDetailResponse(APIModel):
     qr_code: str
     status: TicketStatus
     purchased_at: datetime
-    seat: TicketSeatResponse
+    seat: TicketSeatResponse | None
     zone: TicketZoneResponse
     event: TicketEventResponse
 

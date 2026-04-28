@@ -4,7 +4,7 @@ from app.services.embedding import generate_embedding
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.event import Event, EventCategory, EventTag
+from app.models.event import Event
 from app.models.enums import EventStatus, SeatStatus
 from app.models.seat import Seat, SeatZone
 
@@ -24,7 +24,7 @@ class EventRepository:
         stmt = (
             select(Event)
             .where(Event.status == EventStatus.PUBLISHED, Event.is_private.is_(False))
-            .options(joinedload(Event.categories), joinedload(Event.tags), joinedload(Event.zones))
+            .options(joinedload(Event.categories), joinedload(Event.zones))
         )
 
         if search:
@@ -51,7 +51,7 @@ class EventRepository:
         stmt = (
             select(Event)
             .where(Event.status == EventStatus.PUBLISHED)
-            .options(joinedload(Event.categories), joinedload(Event.tags))
+            .options(joinedload(Event.categories))
         )
         return list(self.db.scalars(stmt).unique().all())
 
@@ -76,7 +76,6 @@ class EventRepository:
             .where(Event.id == event_id)
             .options(
                 joinedload(Event.categories),
-                joinedload(Event.tags),
                 joinedload(Event.zones).joinedload(SeatZone.seats),
             )
         )
@@ -86,10 +85,6 @@ class EventRepository:
         self.db.add(event)
         self.db.flush()
         return event
-
-    def delete_categories_and_tags(self, event_id: str) -> None:
-        self.db.query(EventCategory).filter(EventCategory.event_id == event_id).delete()
-        self.db.query(EventTag).filter(EventTag.event_id == event_id).delete()
 
     def find_lowest_price(self, event_id: str) -> float | None:
         return self.db.scalar(select(func.min(SeatZone.price)).where(SeatZone.event_id == event_id))

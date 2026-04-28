@@ -12,33 +12,38 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.post("/events", status_code=status.HTTP_201_CREATED)
-def create_event(payload: EventCreateRequest, db: DbSession, _: AdminUser):
-    return success_response(EventService(db).serialize(EventService(db).create(payload)), status_code=status.HTTP_201_CREATED)
+def create_event(payload: EventCreateRequest, db: DbSession, user: AdminUser):
+    event = EventService(db).create(payload, host_id=user.id)
+    return success_response(EventService(db).serialize(event), status_code=status.HTTP_201_CREATED)
 
 
-@router.post("/events/reindex-embeddings")
-def reindex_event_embeddings(
-    db: DbSession,
-    _: AdminUser,
-    force: bool = Query(default=True, description="Recompute embeddings for all public events"),
-):
-    updated = EventService(db).reindex_public_embeddings(force=force)
-    return success_response({"updated_events": updated, "force": force})
+# @router.post("/events/reindex-embeddings")
+# def reindex_event_embeddings(
+#     db: DbSession,
+#     _: AdminUser,
+#     force: bool = Query(default=True, description="Recompute embeddings for all public events"),
+# ):
+#     updated = EventService(db).reindex_public_embeddings(force=force)
+#     return success_response({"updated_events": updated, "force": force})
 
 
 @router.put("/events/{event_id}")
-def update_event(event_id: str, payload: EventCreateRequest, db: DbSession, _: AdminUser):
+def update_event(event_id: str, payload: EventCreateRequest, db: DbSession, user: AdminUser):
     try:
-        return success_response(EventService(db).serialize(EventService(db).update(event_id, payload)))
+        return success_response(EventService(db).serialize(EventService(db).update(event_id, payload, host_id=user.id)))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.delete("/events/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_event(event_id: str, db: DbSession, _: AdminUser):
+def delete_event(event_id: str, db: DbSession, user: AdminUser):
     try:
-        EventService(db).delete(event_id)
+        EventService(db).delete(event_id, host_id=user.id)
         return success_response({"deleted": True}, status_code=status.HTTP_200_OK)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 

@@ -28,8 +28,10 @@ class EventCreateRequest(BaseModel):
     is_private: bool = False
     theme: str = Field(default="minimal", max_length=50)
     status: EventStatus = EventStatus.DRAFT
+    # Preferred: link to pre-created categories
+    category_ids: list[UUID] = Field(default_factory=list)
+    # Backward-compatible: allow category names (server will upsert)
     categories: list[str] = Field(default_factory=list)
-    tags: list[str] = Field(default_factory=list)
     zones: list[SeatZonePayload] = Field(default_factory=list)
 
     @model_validator(mode="before")
@@ -78,6 +80,11 @@ class ZoneResponse(APIModel):
     seats: list[SeatResponse]
 
 
+class CategoryResponse(APIModel):
+    id: UUID
+    name: str
+
+
 class EventResponse(APIModel):
     id: UUID
     title: str
@@ -91,8 +98,7 @@ class EventResponse(APIModel):
     is_private: bool
     theme: str
     status: EventStatus
-    categories: list[str]
-    tags: list[str]
+    categories: list[CategoryResponse]
     zones: list[ZoneResponse]
 
 
@@ -105,7 +111,6 @@ class EventListItem(APIModel):
     venue: str
     banner_url: str | None
     lowest_price: float | None
-    categories: list[str]
-    tags: list[str]
+    categories: list[CategoryResponse]
     cosine_distance: float | None = None
     similarity_score: float | None = None
