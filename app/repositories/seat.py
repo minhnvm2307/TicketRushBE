@@ -15,7 +15,7 @@ class SeatRepository:
         return self.db.get(Seat, seat_id)
 
     def get_by_id_for_update(self, seat_id: str) -> Seat | None:
-        stmt = select(Seat).where(Seat.id == seat_id).options(joinedload(Seat.zone)).with_for_update()
+        stmt = select(Seat).where(Seat.id == seat_id).options(joinedload(Seat.zone))
         return self.db.scalar(stmt)
 
     def get_many_by_ids(self, seat_ids: list[str]) -> list[Seat]:
@@ -23,7 +23,7 @@ class SeatRepository:
         return list(self.db.scalars(stmt).unique().all())
 
     def get_many_by_ids_for_update(self, seat_ids: list[str]) -> list[Seat]:
-        stmt = select(Seat).where(Seat.id.in_(seat_ids)).options(joinedload(Seat.zone)).with_for_update()
+        stmt = select(Seat).where(Seat.id.in_(seat_ids)).options(joinedload(Seat.zone))
         return list(self.db.scalars(stmt).unique().all())
 
     def count_statuses_by_event(self, event_id: str) -> dict[str, int]:

@@ -3,7 +3,7 @@ from datetime import datetime
 import numpy as np
 from pgvector.sqlalchemy import Vector
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Numeric, String, Table, Text, UniqueConstraint, func
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, Table, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

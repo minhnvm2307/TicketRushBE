@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     embedding_onnx_model_path: str = Field(default="/models/model.onnx", alias="EMBEDDING_ONNX_MODEL_PATH")
     embedding_onnx_tokenizer_path: str = Field(default="/models/tokenizer.json", alias="EMBEDDING_ONNX_TOKENIZER_PATH")
     embedding_dimension: int = Field(default=384, alias="EMBEDDING_DIMENSION")
-    embedding_similarity_threshold: float = Field(default=0.5, alias="EMBEDDING_SIMILARITY_THRESHOLD")
+    embedding_similarity_threshold: float = Field(default=0.7, alias="EMBEDDING_SIMILARITY_THRESHOLD")
 
     default_admin_email: str = Field(alias="DEFAULT_ADMIN_EMAIL")
     default_admin_password: str = Field(alias="DEFAULT_ADMIN_PASSWORD")

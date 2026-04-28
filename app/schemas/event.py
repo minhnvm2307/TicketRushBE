@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.models.enums import EventStatus, SeatStatus
+from app.models.enums import EventStatus, SeatStatus, SeatingType, TicketType
 from app.schemas.common import APIModel
 
 
@@ -32,6 +32,8 @@ class EventCreateRequest(BaseModel):
     category_ids: list[UUID] = Field(default_factory=list)
     # Backward-compatible: allow category names (server will upsert)
     categories: list[str] = Field(default_factory=list)
+    seating_type: SeatingType = SeatingType.ASSIGNED
+    ticket_type: TicketType = TicketType.PAID
     zones: list[SeatZonePayload] = Field(default_factory=list)
 
     @model_validator(mode="before")
@@ -72,8 +74,9 @@ class SeatResponse(APIModel):
 class ZoneResponse(APIModel):
     id: UUID
     name: str
-    rows: int
-    cols: int
+    # Some zones (e.g., non-assigned/standing) may not have a row/col grid.
+    rows: int | None = None
+    cols: int | None = None
     price: float
     capacity: int
     color: str
@@ -100,6 +103,8 @@ class EventResponse(APIModel):
     status: EventStatus
     categories: list[CategoryResponse]
     zones: list[ZoneResponse]
+    seating_type: SeatingType
+    ticket_type: TicketType
 
 
 class EventListItem(APIModel):
@@ -112,5 +117,7 @@ class EventListItem(APIModel):
     banner_url: str | None
     lowest_price: float | None
     categories: list[CategoryResponse]
+    seating_type: SeatingType
+    ticket_type: TicketType
     cosine_distance: float | None = None
     similarity_score: float | None = None

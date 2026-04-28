@@ -9,6 +9,14 @@ from app.services.seats import SeatService
 
 router = APIRouter(prefix="/events", tags=["events"])
 
+@router.get("/{event_id}")
+def get_event(event_id: str, db: DbSession):
+    try:
+        event = EventService(db).get_public_detail(event_id)
+        return success_response(EventService(db).serialize(event))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
 
 @router.get("")
 def list_events(
@@ -18,15 +26,6 @@ def list_events(
     date_to: datetime | None = Query(default=None),
 ):
     return success_response(EventService(db).list_public(search, date_from, date_to))
-
-
-@router.get("/{event_id}")
-def get_event(event_id: str, db: DbSession):
-    try:
-        event = EventService(db).get_public_detail(event_id)
-        return success_response(EventService(db).serialize(event))
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.get("/{event_id}/seats")

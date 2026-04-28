@@ -89,6 +89,8 @@ class EventService:
             is_private=payload.is_private,
             theme=payload.theme,
             status=payload.status,
+            seating_type=payload.seating_type,
+            ticket_type=payload.ticket_type,
         )
         self.repo.create(event)
         self._replace_categories(event, payload)
@@ -115,6 +117,8 @@ class EventService:
         event.is_private = payload.is_private
         event.theme = payload.theme
         event.status = payload.status
+        event.seating_type = payload.seating_type
+        event.ticket_type = payload.ticket_type
         self._replace_categories(event, payload)
         self._replace_zones(event, payload.zones)
         self.db.commit()
@@ -147,6 +151,8 @@ class EventService:
             status=event.status,
             categories=[{"id": item.id, "name": item.name} for item in event.categories],
             zones=event.zones,
+            seating_type=event.seating_type,
+            ticket_type=event.ticket_type,
         )
 
     def _replace_categories(self, event: Event, payload: EventCreateRequest) -> None:
