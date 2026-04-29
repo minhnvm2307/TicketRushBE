@@ -11,7 +11,7 @@ class SeatZonePayload(BaseModel):
     name: str
     rows: int = Field(ge=1)
     cols: int = Field(ge=1)
-    price: float = Field(gt=0)
+    price: float | None = None
     color: str
     capacity: int | None = Field(default=None, ge=0)
 
@@ -44,6 +44,28 @@ class EventCreateRequest(BaseModel):
         legacy_event_date = values.get("event_date")
         if legacy_event_date and not values.get("start_time"):
             values["start_time"] = legacy_event_date
+        return values
+    
+    @model_validator(mode="before")
+    @classmethod
+    def ticket_type_price(cls, values: dict):
+        if not isinstance(values, dict):
+            return values
+        
+        ticket_type = values.get("ticket_type")
+        zones = values.get("zones", [])
+        
+        if ticket_type == TicketType.PAID:
+            for zone in zones:
+                price = zone.get("price")
+                if price is None or price <= 0:
+                    raise ValueError("All zones must have a positive price for PAID ticket type")
+                    
+        if ticket_type == TicketType.FREE:
+            for zone in zones:
+                price = zone.get("price")
+                if price is not None and price != 0:
+                    raise ValueError("All zones must have a price of 0 for FREE ticket type")
         return values
 
     @model_validator(mode="after")
@@ -105,6 +127,7 @@ class EventResponse(APIModel):
     zones: list[ZoneResponse]
     seating_type: SeatingType
     ticket_type: TicketType
+    max_capacity: int | None = None
 
 
 class EventListItem(APIModel):
@@ -119,5 +142,6 @@ class EventListItem(APIModel):
     categories: list[CategoryResponse]
     seating_type: SeatingType
     ticket_type: TicketType
+    max_capacity: int | None = None
     cosine_distance: float | None = None
     similarity_score: float | None = None

@@ -123,6 +123,7 @@ class EventService:
         event.status = payload.status
         event.seating_type = payload.seating_type
         event.ticket_type = payload.ticket_type
+        event.max_capacity = payload.max_capacity
         self._replace_categories(event, payload)
         self._replace_zones(event, payload.zones)
         self.db.commit()
@@ -140,7 +141,6 @@ class EventService:
         self.db.commit()
 
     def serialize(self, event: Event) -> EventResponse:
-        print(f"DEBUG: zones={event.zones}")
         return EventResponse(
             id=event.id,
             title=event.title,
@@ -158,6 +158,7 @@ class EventService:
             zones=[SeatService.serialize_zone(zone) for zone in event.zones],
             seating_type=event.seating_type,
             ticket_type=event.ticket_type,
+            max_capacity=event.max_capacity
         )
 
     def _replace_categories(self, event: Event, payload: EventCreateRequest) -> None:

@@ -1,5 +1,17 @@
 # TicketRush Backend API Reference
 
+## UPDATE SUMMARY:
+- EVENTS: event can be FREE or PAID required (determined by ticket_type and seating_type)
+- Remove tags table (keep only "categories")
+- ADMIN: admin will only manage event that they hosted
+
+> Note for frontend (optional): `theme` features of events used for design the thema page when customer clicked on event, admin can choose the background theme for their events
+> > Design the dashboard view (explore view in multiple section: recently buyed, hot events, categories filtering page,...)
+
+## Upcomming update: 
+- add maximum ticket user can book
+- stored seat_zone in flexible way (not only hectangle shape)
+
 ## Common Rules
 
 Base API path: `http://localhost:8000/api`
@@ -53,6 +65,14 @@ Use these values for enum-typed request and response fields in the API sections 
 | `status` for tickets | `VALID`, `USED`, `REFUNDED` |
 | `status` for orders | `PENDING`, `PAID`, `CANCELLED` |
 | `interaction_type` | `VIEW`, `HOLD`, `PURCHASE` |
+
+> New enum types: events can be free (no need to choose seat)
+
+| Enum field | Possible values |
+| --- | --- |
+| `ticket_type` | `FREE`, `PAID` |
+| `seating_type` | `ASSIGNED`, `GENERAL_ADMISSION` |
+| `zone_type` | `ASSIGNED`, `GENERAL_ADMISSION` |
 
 Special response types:
 - `GET /metrics` returns Prometheus text, not JSON.
@@ -226,7 +246,11 @@ Description about API:
 - Return the authenticated user profile.
 - The token must be valid and the user must still exist.
 
-## Event APIs
+## Event APIs (BIG UPDATE)
+
+#### UPDATE-1: Event have two types: FREE or PAID
+FREE type not require choosing
+#### UPDATE-2: Event have max_capacity, max_bookable
 
 ### API: GET `http://localhost:8000/api/events`
 
@@ -258,20 +282,25 @@ Success:
 {
   "success": true,
   "data": [
-    {
-      "id": "1df1d7c6-7f22-4f31-a5aa-0e7eb3e9f9b2",
-      "title": "Summer Night Live",
-      "slug": "summer-night-live",
-      "start_time": "2026-06-01T19:00:00Z",
-      "end_time": "2026-06-01T21:00:00Z",
-      "venue": "Central Stadium",
-      "banner_url": "https://example.com/banner.jpg",
-      "lowest_price": 1500000,
-      "categories": ["concert"],
-      "tags": ["summer", "live"],
-      "cosine_distance": null,
-      "similarity_score": null
-    }
+      {
+          "id": "3705501d-9924-443d-9c4a-ff515743a2a6",
+          "title": "K-Pop Dance Battle",
+          "slug": "kpop-dance-battle",
+          "start_time": "2026-05-10T07:00:00+00:00",
+          "end_time": "2026-05-10T11:00:00+00:00",
+          "venue": "AEON Mall Long Bien",
+          "banner_url": "https://images.unsplash.com/photo-1547153760-18fc86324498",
+          "lowest_price": 0.0,
+          "categories": [
+              {
+                  "id": "ea37afa6-0700-4f99-93f1-01541ddfdc1d",
+                  "name": "entertainment"
+              }
+          ],
+          "max_capacity": 23, // (nullable)
+          "cosine_distance": 0.4288503953471895,
+          "similarity_score": 0.7855748023264053
+      },
   ]
 }
 ```
@@ -291,6 +320,8 @@ Description about API:
 - Response items use `snake_case` because the route returns raw dictionaries.
 
 ### API: GET `http://localhost:8000/api/events/{event_id}`
+
+> NOTE: event can have seat-zone or not (zones = [])
 
 Input request:
 
@@ -315,25 +346,36 @@ Success:
 
 ```json
 {
-  "success": true,
+  "success":true,
   "data": {
-    "id": "1df1d7c6-7f22-4f31-a5aa-0e7eb3e9f9b2",
-    "title": "Summer Night Live",
-    "slug": "summer-night-live",
-    "description": "Main concert night",
-    "shortDescription": "Open-air performance",
-    "startTime": "2026-06-01T19:00:00Z",
-    "endTime": "2026-06-01T21:00:00Z",
-    "venue": "Central Stadium",
-    "bannerUrl": "https://example.com/banner.jpg",
-    "isPrivate": false,
-    "theme": "minimal",
-    "status": "PUBLISHED",
-    "categories": ["concert"],
-    "tags": ["summer", "live"],
-    "zones": []
+    "id":"163474dd-2d96-4fcf-8052-18b037272e66","title":"V-Pop Summer Night","slug":"vpop-night-2026","description":"Dem nhac V-Pop quy mo lon voi nhieu headliner va san khau LED ngoai troi.","shortDescription":"Concert V-Pop mua he","startTime":"2026-06-20T12:00:00Z","endTime":"2026-06-20T16:00:00Z",
+    "venue":"My Dinh National Stadium","bannerUrl":"https://images.unsplash.com/photo-1470225620780-dba8ba36b745",
+    "isPrivate":false,
+    "theme":"music-vibrant",
+    "status":"PUBLISHED",
+    "categories"[
+      {
+        "id":"bd35fda2-6005-4b42-b898-58d7b0591a81","name":"music"
+        }
+    ],
+    "zones": [
+      {
+        "id":"a4190480-8dfc-4486-a375-7dbf8de2abd8","name":"VIP",
+        "rows":6,
+        "cols":8,
+        "price":1800000.0,
+        "capacity":48,
+        "color":"#F06292",
+        "seats":[
+          {"id":"0958e193-7013-4075-9e5c-97013fd4a980","label":"VIP-A01","rowIndex":0,"colIndex":0,"status":"AVAILABLE","lockedBy":null,"lockedUntil":null
+          },
+          ...
+        ]
+      }
+    ]
   }
 }
+
 ```
 
 Failed:
@@ -396,7 +438,12 @@ Description about API:
 - The response is `camelCase`.
 - Locked seats can appear with runtime status `LOCKED` when Redis holds are active.
 
-## Seat APIs
+## Seat APIs (UPDATE)
+
+#### UPDATE-1: seat_zone have capacity
+#### UPDATE-2: seat have two types: ASSIGNED / GENERAL_ADMISSION
+- ASSIGNED: need booking by customer (need to pay)
+- GENERAL_ADMISSION: free seat (no payment)
 
 ### API: POST `http://localhost:8000/api/seats/{seat_id}/hold`
 
@@ -760,9 +807,16 @@ Description about API:
 - Download the QR image for a ticket.
 - The QR payload is stored as base64 and returned as PNG bytes.
 
-## Admin APIs
+## Admin APIs (UPDATE)
 
-### API: POST `http://localhost:8000/api/admin/events`
+#### UPDATE-1: Each admin is a user that have can host a event, and manage their own events
+#### UPDATE-2: Validate the price of zone and ticketprice
+- IF ticket_type is FREE, price must be 0
+- IF ticket_type is PAID, price must > 0
+
+### API: GET `http://localhost:8000/api/admin/events`
+
+List owner's events
 
 Input request:
 
@@ -785,7 +839,6 @@ samples:
   "theme": "minimal",
   "status": "PUBLISHED",
   "categories": ["concert"],
-  "tags": ["summer", "live"],
   "zones": [
     {
       "name": "VIP",
@@ -796,6 +849,54 @@ samples:
       "capacity": 8
     }
   ]
+}
+```
+
+Response format:
+
+- Success status: `200 OK`
+
+Description about API:
+- Get event that hosted by "admin-account".
+- This route is admin-only.
+
+### API: POST `http://localhost:8000/api/admin/events`
+
+Create new event
+
+Input request:
+
+- Header: `Authorization: Bearer <access_token>`
+- Header: `Content-Type: application/json`
+- Body: JSON
+
+samples:
+
+```json
+{
+  "title": "Summer Night Live",
+  "description": "Main concert night",
+  "short_description": "Open-air performance",
+  "start_time": "2026-06-01T19:00:00Z",
+  "end_time": "2026-06-01T21:00:00Z",
+  "venue": "Central Stadium",
+  "banner_url": "https://example.com/banner.jpg",
+  "is_private": false,
+  "theme": "minimal",
+  "status": "PUBLISHED",
+  "categorie_ids": ["List of UUID of categories"], // Optional
+  "categories": ["music", "tech"],
+  "zones": [
+    {
+      "name": "VIP",
+      "rows": 2,
+      "cols": 4,
+      "price": 1500000,
+      "color": "#d4af37",
+    }
+  ],
+  "seating_type": "ASSIGNED"/"GENERAL_ADMISSION",
+  "ticket_type": "FREE"/"PAID"
 }
 ```
 
@@ -826,18 +927,17 @@ Success:
     "theme": "minimal",
     "status": "PUBLISHED",
     "categories": ["concert"],
-    "tags": ["summer", "live"],
     "zones": []
   }
 }
 ```
 
-Failed:
+Failed (WHEN failed in validate price and ticket price):
 
 ```json
 {
-  "success": false,
-  "error": "admin only"
+  "success":false,
+  "error":"[{'type': 'value_error', 'loc': ('body',), 'msg': 'Value error, All zones must have a price of 0 for FREE ticket type', 'input': {'title': 'Test event 2', 'description': 'Main concert night', 'short_description': 'Open-air performance', 'start_time': '2026-06-01T19:00:00Z', 'end_time': '2026-06-01T21:00:00Z', 'venue': 'Central Stadium', 'banner_url': 'https://example.com/banner.jpg', 'is_private': False, 'theme': 'minimal', 'status': 'PUBLISHED', 'categories': ['music', 'technology'], 'zones': [{'name': 'NORMAL', 'rows': 10, 'cols': 14, 'price': 2, 'color': '#d4af37'}], 'seating_type': 'ASSIGNED', 'ticket_type': 'FREE'}, 'ctx': {'error': ValueError('All zones must have a price of 0 for FREE ticket type')}}]"
 }
 ```
 
@@ -845,54 +945,6 @@ Description about API:
 - Create a new event.
 - This route is admin-only.
 - The response is `camelCase`.
-
-### API: POST `http://localhost:8000/api/admin/events/reindex-embeddings`
-
-Input request:
-
-- Header: `Authorization: Bearer <access_token>`
-- Query param: `force` optional boolean, default `true`
-
-samples:
-
-```http
-POST /api/admin/events/reindex-embeddings?force=true HTTP/1.1
-Authorization: Bearer eyJhbGciOi...
-```
-
-Response format:
-
-- Success status: `200 OK`
-- Success body: standard envelope with a raw dictionary
-- Failed status: `403 Forbidden`
-
-samples:
-
-Success:
-
-```json
-{
-  "success": true,
-  "data": {
-    "updated_events": 12,
-    "force": true
-  }
-}
-```
-
-Failed:
-
-```json
-{
-  "success": false,
-  "error": "admin only"
-}
-```
-
-Description about API:
-- Rebuild embeddings for public events.
-- `force=true` reindexes all public events.
-- Response keys stay `snake_case`.
 
 ### API: PUT `http://localhost:8000/api/admin/events/{event_id}`
 
