@@ -1,6 +1,6 @@
 services:
   api:
-    image: ticketrush-light:latest
+    image: minhnvm2307/ticketrush:latest
     # build: .
     env_file:
       - .env
