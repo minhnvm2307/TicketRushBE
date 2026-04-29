@@ -26,6 +26,7 @@ Requires-Dist: pgvector>=0.4.2
 Requires-Dist: numpy>=2.0.0
 Requires-Dist: onnxruntime>=1.20.0
 Requires-Dist: tokenizers>=0.20.0
+Requires-Dist: pillow>=12.2.0
 Provides-Extra: dev
 Requires-Dist: pytest>=8.3.3; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.24.0; extra == "dev"

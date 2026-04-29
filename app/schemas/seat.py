@@ -23,7 +23,7 @@ class SeatMapSeatResponse(APIModel):
     row_index: int
     col_index: int
     status: SeatStatus
-    locked_by: str | None = None
+    locked_by: UUID | None = None
     locked_until: datetime | None = None
 
 

@@ -109,3 +109,7 @@ class EventRepository:
             Event.deleted_at.is_(None)
         )
         return list(self.db.scalars(stmt).all())
+    
+    def list_managed_by_host(self, host_id: str) -> list[Event]:
+        stmt = select(Event).where(Event.host_id == host_id)
+        return list(self.db.scalars(stmt).all())

@@ -6,6 +6,7 @@ from app.models.event import Category, Event
 from app.models.seat import Seat, SeatZone
 from app.repositories.event import EventRepository
 from app.schemas.event import EventCreateRequest, EventResponse
+from app.services.seats import SeatService
 from app.services.embedding import generate_embedding
 
 
@@ -73,6 +74,9 @@ class EventService:
         if not event:
             raise ValueError("event not found")
         return event
+    
+    def list_managed_by_host(self, host_id: str) -> list[Event]:
+        return self.repo.list_managed_by_host(host_id)
 
     def create(self, payload: EventCreateRequest, host_id) -> Event:
         event = Event(
@@ -136,6 +140,7 @@ class EventService:
         self.db.commit()
 
     def serialize(self, event: Event) -> EventResponse:
+        print(f"DEBUG: zones={event.zones}")
         return EventResponse(
             id=event.id,
             title=event.title,
@@ -150,7 +155,7 @@ class EventService:
             theme=event.theme,
             status=event.status,
             categories=[{"id": item.id, "name": item.name} for item in event.categories],
-            zones=event.zones,
+            zones=[SeatService.serialize_zone(zone) for zone in event.zones],
             seating_type=event.seating_type,
             ticket_type=event.ticket_type,
         )

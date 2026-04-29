@@ -10,6 +10,9 @@ from app.services.seats import SeatService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+@router.get("/events")
+def list_events(db: DbSession, user: AdminUser):
+    return success_response(EventService(db).list_managed_by_host(user.id))
 
 @router.post("/events", status_code=status.HTTP_201_CREATED)
 def create_event(payload: EventCreateRequest, db: DbSession, user: AdminUser):

@@ -150,3 +150,29 @@ class SeatService:
         self.db.commit()
         self.db.refresh(zone)
         return SeatMapZoneResponse.model_validate(zone)
+    
+    @staticmethod
+    def serialize_zone(zone: SeatZone) -> dict:
+        return {
+            "id": zone.id,
+            "name": zone.name,
+            "zone_type": zone.zone_type.value,
+            "rows": zone.rows,
+            "cols": zone.cols,
+            "price": float(zone.price),
+            "capacity": zone.capacity,
+            "color": zone.color,
+            "seats": [SeatService.serialize_seat(seat) for seat in zone.seats]
+        }
+    
+    @staticmethod
+    def serialize_seat(seat: Seat) -> dict:
+        return {
+            "id": seat.id,
+            "label": seat.label,
+            "row_index": seat.row_index,
+            "col_index": seat.col_index,
+            "status": seat.status.value,
+            "locked_by": str(seat.locked_by) if seat.locked_by else None,
+            "locked_until": seat.locked_until.isoformat() if seat.locked_until else None
+        }
