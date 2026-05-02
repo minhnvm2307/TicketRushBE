@@ -3,6 +3,7 @@ from functools import lru_cache
 from typing import Any
 
 from redis import Redis
+from fastapi.encoders import jsonable_encoder
 
 from app.core.config import get_settings
 
@@ -18,7 +19,8 @@ def redis_is_enabled() -> bool:
 
 
 def dumps_payload(payload: dict[str, Any]) -> str:
-    return json.dumps(payload, separators=(",", ":"))
+    # Ensure non-JSON-native types (UUID, datetime, Decimal, etc.) are encoded.
+    return json.dumps(jsonable_encoder(payload), separators=(",", ":"))
 
 
 def loads_payload(raw: str | bytes | None) -> dict[str, Any] | None:

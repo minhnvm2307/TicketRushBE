@@ -9,3 +9,4 @@
 *.log
 *.egg-info
 TicketRushFE/
+tests

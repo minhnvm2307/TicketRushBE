@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi.encoders import jsonable_encoder
 
 from app.core.security import decode_access_token
 from app.repositories.user import UserRepository
@@ -36,7 +37,9 @@ async def admin_dashboard_updates(websocket: WebSocket, event_id: str, token: st
             return
         room = f"admin-dashboard:{event_id}"
         await connection_manager.connect(room, websocket)
-        await websocket.send_json({"type": "dashboard_update", **DashboardService(db).dashboard(event_id)})
+        await websocket.send_json(
+            jsonable_encoder({"type": "dashboard_update", **DashboardService(db).dashboard(event_id)})
+        )
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:

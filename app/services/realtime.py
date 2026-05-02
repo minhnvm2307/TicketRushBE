@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 from fastapi import WebSocket
+from fastapi.encoders import jsonable_encoder
 
 
 class ConnectionManager:
@@ -17,7 +18,9 @@ class ConnectionManager:
 
     async def broadcast(self, event_id: str, payload: dict) -> None:
         for socket in list(self.connections[event_id]):
-            await socket.send_json(payload)
+            # Starlette's `send_json` uses `json.dumps` internally and does not
+            # automatically handle non-JSON-native types (e.g. UUID, datetime).
+            await socket.send_json(jsonable_encoder(payload))
 
 
 connection_manager = ConnectionManager()
