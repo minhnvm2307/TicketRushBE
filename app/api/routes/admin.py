@@ -12,22 +12,14 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.get("/events")
 def list_events(db: DbSession, user: AdminUser):
-    return success_response(EventService(db).list_managed_by_host(user.id))
+    service = EventService(db)
+    events = [service.serialize(event) for event in service.list_managed_by_host(user.id)]
+    return success_response(events)
 
 @router.post("/events", status_code=status.HTTP_201_CREATED)
 def create_event(payload: EventCreateRequest, db: DbSession, user: AdminUser):
     event = EventService(db).create(payload, host_id=user.id)
     return success_response(EventService(db).serialize(event), status_code=status.HTTP_201_CREATED)
-
-
-# @router.post("/events/reindex-embeddings")
-# def reindex_event_embeddings(
-#     db: DbSession,
-#     _: AdminUser,
-#     force: bool = Query(default=True, description="Recompute embeddings for all public events"),
-# ):
-#     updated = EventService(db).reindex_public_embeddings(force=force)
-#     return success_response({"updated_events": updated, "force": force})
 
 
 @router.put("/events/{event_id}")

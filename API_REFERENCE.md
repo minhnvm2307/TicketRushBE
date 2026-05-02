@@ -291,12 +291,14 @@ Success:
           "venue": "AEON Mall Long Bien",
           "banner_url": "https://images.unsplash.com/photo-1547153760-18fc86324498",
           "lowest_price": 0.0,
-          "categories": [
+            "categories": [
               {
-                  "id": "ea37afa6-0700-4f99-93f1-01541ddfdc1d",
-                  "name": "entertainment"
+                "id": "ea37afa6-0700-4f99-93f1-01541ddfdc1d",
+                "name": "entertainment",
+                "createdAt": "2026-05-02T04:40:36.712599Z",
+                "updatedAt": "2026-05-02T04:40:36.712599Z"
               }
-          ],
+            ],
           "max_capacity": 23, // (nullable)
           "cosine_distance": 0.4288503953471895,
           "similarity_score": 0.7855748023264053
@@ -317,7 +319,7 @@ Failed:
 Description about API:
 - List public, published, non-private events.
 - Search is optional.
-- Response items use `snake_case` because the route returns raw dictionaries.
+- Top-level event fields use `snake_case` because the route returns raw dictionaries. Nested category objects use the `CategoryResponse` shape.
 
 ### API: GET `http://localhost:8000/api/events/{event_id}`
 
@@ -353,10 +355,13 @@ Success:
     "isPrivate":false,
     "theme":"music-vibrant",
     "status":"PUBLISHED",
-    "categories"[
+    "categories": [
       {
-        "id":"bd35fda2-6005-4b42-b898-58d7b0591a81","name":"music"
-        }
+        "id": "bd35fda2-6005-4b42-b898-58d7b0591a81",
+        "name": "music",
+        "createdAt": "2026-05-02T04:40:36.712599Z",
+        "updatedAt": "2026-05-02T04:40:36.712599Z"
+      }
     ],
     "zones": [
       {
@@ -884,8 +889,15 @@ samples:
   "is_private": false,
   "theme": "minimal",
   "status": "PUBLISHED",
-  "categorie_ids": ["List of UUID of categories"], // Optional
-  "categories": ["music", "tech"],
+  "categories": [
+    {
+      "id": "58881584-8d6b-41aa-9595-e990f5e57a82",
+      "name": "technology",
+      "createdAt": "2026-05-02T04:58:16.659608Z",
+      "updatedAt": "2026-05-02T04:58:16.659608Z"
+    }
+  ],
+  "category_ids": ["58881584-8d6b-41aa-9595-e990f5e57a82"], // Optional legacy fallback
   "zones": [
     {
       "name": "VIP",
@@ -926,7 +938,14 @@ Success:
     "isPrivate": false,
     "theme": "minimal",
     "status": "PUBLISHED",
-    "categories": ["concert"],
+    "categories": [
+      {
+        "id": "58881584-8d6b-41aa-9595-e990f5e57a82",
+        "name": "technology",
+        "createdAt": "2026-05-02T04:58:16.659608Z",
+        "updatedAt": "2026-05-02T04:58:16.659608Z"
+      }
+    ],
     "zones": []
   }
 }
@@ -945,6 +964,7 @@ Description about API:
 - Create a new event.
 - This route is admin-only.
 - The response is `camelCase`.
+- The `categories` request field must use the full `CategoryResponse` object shape copied from a list or detail response.
 
 ### API: PUT `http://localhost:8000/api/admin/events/{event_id}`
 
@@ -969,8 +989,14 @@ samples:
   "is_private": false,
   "theme": "minimal",
   "status": "PUBLISHED",
-  "categories": ["concert"],
-  "tags": ["summer", "live"],
+  "categories": [
+    {
+      "id": "58881584-8d6b-41aa-9595-e990f5e57a82",
+      "name": "technology",
+      "createdAt": "2026-05-02T04:58:16.659608Z",
+      "updatedAt": "2026-05-02T04:58:16.659608Z"
+    }
+  ],
   "zones": []
 }
 ```
@@ -1001,8 +1027,14 @@ Success:
     "isPrivate": false,
     "theme": "minimal",
     "status": "PUBLISHED",
-    "categories": ["concert"],
-    "tags": ["summer", "live"],
+    "categories": [
+      {
+        "id": "58881584-8d6b-41aa-9595-e990f5e57a82",
+        "name": "technology",
+        "createdAt": "2026-05-02T04:58:16.659608Z",
+        "updatedAt": "2026-05-02T04:58:16.659608Z"
+      }
+    ],
     "zones": []
   }
 }
@@ -1021,6 +1053,7 @@ Description about API:
 - Update an existing event.
 - This route is admin-only.
 - Returns `404` when the event does not exist.
+- The `categories` request field must use the full `CategoryResponse` object shape copied from a list or detail response.
 
 ### API: DELETE `http://localhost:8000/api/admin/events/{event_id}`
 

@@ -16,6 +16,13 @@ class SeatZonePayload(BaseModel):
     capacity: int | None = Field(default=None, ge=0)
 
 
+class CategoryPayload(APIModel):
+    id: UUID
+    name: str
+    created_at: datetime
+    updated_at: datetime
+
+
 class EventCreateRequest(BaseModel):
     title: str = Field(min_length=3, max_length=255)
     description: str
@@ -28,10 +35,10 @@ class EventCreateRequest(BaseModel):
     is_private: bool = False
     theme: str = Field(default="minimal", max_length=50)
     status: EventStatus = EventStatus.DRAFT
-    # Preferred: link to pre-created categories
+    # Preferred: full category objects copied from `CategoryResponse`
+    categories: list[CategoryPayload] = Field(default_factory=list)
+    # Legacy fallback for older clients that still send ids only
     category_ids: list[UUID] = Field(default_factory=list)
-    # Backward-compatible: allow category names (server will upsert)
-    categories: list[str] = Field(default_factory=list)
     seating_type: SeatingType = SeatingType.ASSIGNED
     ticket_type: TicketType = TicketType.PAID
     zones: list[SeatZonePayload] = Field(default_factory=list)
@@ -105,9 +112,8 @@ class ZoneResponse(APIModel):
     seats: list[SeatResponse]
 
 
-class CategoryResponse(APIModel):
-    id: UUID
-    name: str
+class CategoryResponse(CategoryPayload):
+    pass
 
 
 class EventResponse(APIModel):

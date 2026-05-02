@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.models.event import Category, Event
 from app.models.seat import Seat, SeatZone
 from app.repositories.event import EventRepository
-from app.schemas.event import EventCreateRequest, EventResponse
+from app.schemas.event import CategoryResponse, EventCreateRequest, EventResponse
 from app.services.seats import SeatService
 from app.services.embedding import generate_embedding
 
@@ -43,7 +43,7 @@ class EventService:
                     "venue": event.venue,
                     "banner_url": event.banner_url,
                     "lowest_price": float(self.repo.find_lowest_price(event.id) or 0),
-                    "categories": [{"id": item.id, "name": item.name} for item in event.categories],
+                    "categories": [CategoryResponse.model_validate(item) for item in event.categories],
                     "cosine_distance": cosine_distance,
                     "similarity_score": similarity_score,
                 }
@@ -154,7 +154,7 @@ class EventService:
             is_private=event.is_private,
             theme=event.theme,
             status=event.status,
-            categories=[{"id": item.id, "name": item.name} for item in event.categories],
+            categories=[CategoryResponse.model_validate(item) for item in event.categories],
             zones=[SeatService.serialize_zone(zone) for zone in event.zones],
             seating_type=event.seating_type,
             ticket_type=event.ticket_type,
@@ -163,29 +163,26 @@ class EventService:
 
     def _replace_categories(self, event: Event, payload: EventCreateRequest) -> None:
         """
-        Preferred: payload.category_ids links to pre-created categories.
-        Backward-compatible: payload.categories will upsert by name.
+        Preferred: payload.categories contains full category objects copied from the response.
+        Legacy fallback: payload.category_ids links to pre-created categories.
         """
         categories: list[Category] = []
 
-        if payload.category_ids:
+        if payload.categories:
+            category_ids = [category.id for category in payload.categories]
+            category_map = {
+                category.id: category
+                for category in self.db.query(Category).filter(Category.id.in_(category_ids)).all()
+            }
+            if len(category_map) != len(set(category_ids)):
+                raise ValueError("one or more categories do not exist")
+            categories = [category_map[category_id] for category_id in category_ids]
+        elif payload.category_ids:
             categories = list(
                 self.db.query(Category).filter(Category.id.in_(payload.category_ids)).all()
             )
             if len(categories) != len(set(payload.category_ids)):
                 raise ValueError("one or more categories do not exist")
-        else:
-            names = [name.strip().lower() for name in payload.categories if name.strip()]
-            if names:
-                existing = {c.name: c for c in self.db.query(Category).filter(Category.name.in_(names)).all()}
-                for name in names:
-                    cat = existing.get(name)
-                    if not cat:
-                        cat = Category(name=name)
-                        self.db.add(cat)
-                        self.db.flush()
-                        existing[name] = cat
-                    categories.append(cat)
 
         event.categories = categories
         self.db.flush()
