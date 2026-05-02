@@ -843,7 +843,14 @@ samples:
   "is_private": false,
   "theme": "minimal",
   "status": "PUBLISHED",
-  "categories": ["concert"],
+  "categories":[
+    {
+      "id":"58881584-8d6b-41aa-9595-e990f5e57a82",
+      "name":"technology",
+      "createdAt":"2026-05-02T04:58:16.659608Z",
+      "updatedAt":"2026-05-02T04:58:16.659608Z"
+    }
+  ],
   "zones": [
     {
       "name": "VIP",

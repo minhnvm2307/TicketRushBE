@@ -39,6 +39,7 @@ class EventCreateRequest(BaseModel):
     categories: list[CategoryPayload] = Field(default_factory=list)
     # Legacy fallback for older clients that still send ids only
     category_ids: list[UUID] = Field(default_factory=list)
+    max_capacity: int | None = Field(default=None, ge=0)
     seating_type: SeatingType = SeatingType.ASSIGNED
     ticket_type: TicketType = TicketType.PAID
     zones: list[SeatZonePayload] = Field(default_factory=list)
