@@ -4,6 +4,10 @@ from fastapi.exceptions import RequestValidationError
 from app.core.responses import error_response
 
 
+class ConflictError(Exception):
+    pass
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(HTTPException)
     async def http_exception_handler(_, exc: HTTPException):

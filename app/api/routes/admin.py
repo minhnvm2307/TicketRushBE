@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import AdminUser, DbSession
+from app.core.exceptions import ConflictError
 from app.core.responses import success_response
 # from app.schemas.dashboard import DashboardResponse, DemographicsResponse
 from app.schemas.event import EventCreateRequest, SeatZonePayload
@@ -28,6 +29,8 @@ def update_event(event_id: str, payload: EventCreateRequest, db: DbSession, user
         return success_response(EventService(db).serialize(EventService(db).update(event_id, payload, host_id=user.id)))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
@@ -39,6 +42,8 @@ def delete_event(event_id: str, db: DbSession, user: AdminUser):
         return success_response({"deleted": True}, status_code=status.HTTP_200_OK)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 

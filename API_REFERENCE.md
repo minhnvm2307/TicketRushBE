@@ -1181,7 +1181,7 @@ Response format:
 - Failed status: `403 Forbidden`
 
 samples:
-
+x
 Success:
 
 ```json

@@ -2,6 +2,7 @@ from re import sub
 
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import ConflictError
 from app.models.event import Category, Event
 from app.models.seat import Seat, SeatZone
 from app.repositories.event import EventRepository
@@ -109,6 +110,8 @@ class EventService:
             raise ValueError("event not found")
         if host_id is not None and str(event.host_id) != str(host_id):
             raise PermissionError("forbidden")
+        if self.repo.has_sold_seats(event_id):
+            raise ConflictError("cannot update event zones with sold seats")
         event.title = payload.title
         event.slug = slugify(payload.title)
         event.description = payload.description
@@ -136,7 +139,7 @@ class EventService:
         if host_id is not None and str(event.host_id) != str(host_id):
             raise PermissionError("forbidden")
         if self.repo.has_sold_seats(event_id):
-            raise ValueError("cannot delete event with sold seats")
+            raise ConflictError("cannot delete event with sold seats")
         self.db.delete(event)
         self.db.commit()
 
@@ -188,7 +191,8 @@ class EventService:
         self.db.flush()
 
     def _replace_zones(self, event: Event, zones) -> None:
-        event.zones = []
+        event.zones.clear()
+        self.db.flush()
         for zone_payload in zones:
             zone = SeatZone(
                 name=zone_payload.name,
