@@ -6,7 +6,7 @@ from app.core.exceptions import ConflictError, ExpiredEventError
 from app.models.event import Category, Event
 from app.models.seat import Seat, SeatZone
 from app.repositories.event import EventRepository
-from app.schemas.event import CategoryResponse, EventCreateRequest, EventResponse
+from app.schemas.event import CategoryResponse, EventCreateRequest, EventResponse, EventUpdateRequest
 from app.services.seats import SeatService
 from app.services.embedding import generate_embedding
 
@@ -104,31 +104,47 @@ class EventService:
         self.db.refresh(event)
         return self.repo.get_by_id(event.id)
 
-    def update(self, event_id: str, payload: EventCreateRequest, host_id=None) -> Event:
+    def update(self, event_id: str, payload: EventUpdateRequest, host_id=None) -> Event:
         event = self.repo.get_by_id(event_id)
         if not event:
             raise ValueError("event not found")
         if host_id is not None and str(event.host_id) != str(host_id):
             raise PermissionError("forbidden")
-        if self.repo.has_sold_seats(event_id):
+        if payload.zones is not None and self.repo.has_sold_seats(event_id):
             raise ConflictError("cannot update event zones with sold seats")
-        event.title = payload.title
-        event.slug = slugify(payload.title)
-        event.description = payload.description
-        event.short_description = payload.short_description
-        event.embedding = generate_embedding(self._build_embedding_text(payload.title, payload.description))
-        event.start_time = payload.start_time
-        event.end_time = payload.end_time
-        event.venue = payload.venue
-        event.banner_url = payload.banner_url
-        event.is_private = payload.is_private
-        event.theme = payload.theme
-        event.status = payload.status
-        event.seating_type = payload.seating_type
-        event.ticket_type = payload.ticket_type
-        event.max_capacity = payload.max_capacity
-        self._replace_categories(event, payload)
-        self._replace_zones(event, payload.zones)
+        next_title = payload.title if payload.title is not None else event.title
+        next_description = payload.description if payload.description is not None else event.description
+
+        event.title = next_title
+        event.slug = slugify(next_title)
+        event.description = next_description
+        if payload.short_description is not None:
+            event.short_description = payload.short_description
+        event.embedding = generate_embedding(self._build_embedding_text(next_title, next_description))
+        if payload.start_time is not None:
+            event.start_time = payload.start_time
+        if payload.end_time is not None:
+            event.end_time = payload.end_time
+        if payload.venue is not None:
+            event.venue = payload.venue
+        if payload.banner_url is not None:
+            event.banner_url = payload.banner_url
+        if payload.is_private is not None:
+            event.is_private = payload.is_private
+        if payload.theme is not None:
+            event.theme = payload.theme
+        if payload.status is not None:
+            event.status = payload.status
+        if payload.seating_type is not None:
+            event.seating_type = payload.seating_type
+        if payload.ticket_type is not None:
+            event.ticket_type = payload.ticket_type
+        if payload.max_capacity is not None:
+            event.max_capacity = payload.max_capacity
+        if payload.categories is not None or payload.category_ids is not None:
+            self._replace_categories(event, payload)
+        if payload.zones is not None:
+            self._replace_zones(event, payload.zones)
         self.db.commit()
         return self.repo.get_by_id(event_id)
 

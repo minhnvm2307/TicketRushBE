@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.redis import RedisKey, get_redis_client, loads_payload, redis_is_enabled
 from app.core.exceptions import ExpiredEventError
-from app.models.enums import InteractionType, OrderStatus, SeatStatus, SeatingType, TicketStatus, ZoneType
+from app.models.enums import InteractionType, OrderStatus, SeatStatus, SeatingType, TicketStatus, TicketType, ZoneType
 from app.models.interaction import UserEventInteraction
 from app.models.order import Order, OrderItem
 from app.models.ticket import Ticket
@@ -37,9 +37,7 @@ class CheckoutService:
     def _has_admission_access(self, event_id: str, user_id: str) -> bool:
         if not self.redis:
             return False
-        access_ttl = self.redis.ttl(RedisKey.event_access_token(str(event_id), str(user_id)))
-        checkout_ttl = self.redis.ttl(RedisKey.checkout_access(str(event_id), str(user_id)))
-        return access_ttl > 0 or checkout_ttl > 0
+        return self.redis.ttl(RedisKey.booking_session(str(event_id), str(user_id))) > 0
 
     def _enforce_max_bookable(self, event, user_id: str, requested_count: int) -> None:
         tickets_bought = self.orders.count_tickets_by_user_event(user_id, str(event.id))
@@ -47,18 +45,26 @@ class CheckoutService:
         if tickets_bought + requested_count > max_bookable:
             raise ValueError(f"You can only purchase up to {max_bookable} tickets for this event.")
 
+    def _enforce_free_ticket_limit(self, event, requested_count: int) -> None:
+        if event.ticket_type != TicketType.FREE:
+            return
+        if requested_count != 1:
+            raise ValueError("Free events allow exactly 1 ticket per checkout.")
+
     async def checkout(self, seat_ids: list[str], user_id: str, event_id: str, quantity: int = 1) -> tuple[Order, list[Ticket]]:
         if not self.redis:
             raise ConnectionError("Redis is not enabled or connected")
         event = self.events.get_public_active_by_id(event_id)
         if not event:
             raise ExpiredEventError("event has ended or is unavailable")
-        if event.seating_type == SeatingType.ASSIGNED and not self._has_admission_access(event.id, user_id):
-            raise ValueError("Your queue access has expired. Please rejoin the queue.")
         if event.seating_type == SeatingType.GENERAL_ADMISSION:
+            self._enforce_free_ticket_limit(event, quantity)
             return await self._checkout_general_admission(event, user_id, quantity)
         if not seat_ids:
             raise ValueError("seat_ids must not be empty for assigned seating events.")
+        if event.seating_type == SeatingType.ASSIGNED and not self._has_admission_access(event.id, user_id):
+            raise ValueError("Your queue access has expired. Please rejoin the queue.")
+        self._enforce_free_ticket_limit(event, len(seat_ids))
         return await self._checkout_assigned(event, seat_ids, user_id)
 
     async def _checkout_assigned(self, event, seat_ids: list[str], user_id: str) -> tuple[Order, list[Ticket]]:
@@ -150,7 +156,7 @@ class CheckoutService:
         if seat_ids:
             self.redis.zrem(hold_index_key, *[str(seat_id) for seat_id in seat_ids])
         if self.redis.zcard(hold_index_key) == 0:
-            self.redis.delete(RedisKey.checkout_access(str(event_id), str(user_id)))
+            self.redis.delete(RedisKey.booking_session(str(event_id), str(user_id)))
 
         for seat in seats:
             await connection_manager.broadcast(

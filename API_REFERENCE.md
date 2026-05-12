@@ -139,6 +139,7 @@ Failed:
 Description about API:
 - Create a new user account.
 - The password must be at least 8 characters.
+- `full_name` is trimmed and must be at least 2 characters after trimming.
 - `date_of_birth` must be in the past.
 - The API returns a login token immediately after registration.
 
@@ -195,6 +196,7 @@ Failed:
 
 Description about API:
 - Authenticate an existing user.
+- `password` must be a non-empty string.
 - Returns the access token and the current user profile.
 
 ### API: GET `http://localhost:8000/api/auth/me`
@@ -502,9 +504,10 @@ Failed:
 ```
 
 Description about API:
-- Hold a seat for a limited time.
+- Hold a seat until the user's booking session expires.
 - Redis must be available.
-- The user must first join the queue and wait until `has_access` becomes `true` for the event.
+- The user must first start a booking session and receive `has_access=true` for the event.
+- Multiple seats held by the same user for the same event share the same `locked_until`.
 - The seat must belong to the same event in the request body.
 
 ### API: DELETE `http://localhost:8000/api/seats/{seat_id}/hold`
@@ -573,6 +576,8 @@ Input request:
 
 samples:
 
+Assigned seating:
+
 ```json
 {
   "event_id": "1df1d7c6-7f22-4f31-a5aa-0e7eb3e9f9b2",
@@ -580,6 +585,16 @@ samples:
     "3f1c0d5a-fc05-4f0a-bd48-3a1ebfd6d7b9",
     "cc7e9d54-1966-4f4f-9f3b-0b6ad71d2f7f"
   ]
+}
+```
+
+General admission:
+
+```json
+{
+  "event_id": "1df1d7c6-7f22-4f31-a5aa-0e7eb3e9f9b2",
+  "seat_ids": [],
+  "quantity": 1
 }
 ```
 
@@ -623,8 +638,10 @@ Failed:
 ```
 
 Description about API:
-- Convert held seats into paid tickets.
-- All seats in the request must still be locked by the current user.
+- Convert held seats or general-admission quantity into tickets.
+- For FREE events, checkout allows exactly 1 ticket per request.
+- For ASSIGNED events, all seats in the request must still be locked by the current user.
+- For GENERAL_ADMISSION events, `seat_ids` can be empty and `quantity` is used.
 - Redis is required.
 
 ### API: GET `http://localhost:8000/api/my-tickets`
@@ -987,25 +1004,7 @@ samples:
 
 ```json
 {
-  "title": "Summer Night Live Updated",
-  "description": "Main concert night updated",
-  "short_description": "Open-air performance",
-  "start_time": "2026-06-01T19:00:00Z",
-  "end_time": "2026-06-01T21:00:00Z",
-  "venue": "Central Stadium",
-  "banner_url": "https://example.com/banner.jpg",
-  "is_private": false,
-  "theme": "minimal",
-  "status": "PUBLISHED",
-  "categories": [
-    {
-      "id": "58881584-8d6b-41aa-9595-e990f5e57a82",
-      "name": "technology",
-      "createdAt": "2026-05-02T04:58:16.659608Z",
-      "updatedAt": "2026-05-02T04:58:16.659608Z"
-    }
-  ],
-  "zones": []
+  "status": "DRAFT"
 }
 ```
 
@@ -1013,7 +1012,7 @@ Response format:
 
 - Success status: `200 OK`
 - Success body: standard envelope with `EventResponse`
-- Failed status: `403 Forbidden` or `404 Not Found`
+- Failed status: `403 Forbidden`, `404 Not Found`, or `409 Conflict`
 
 samples:
 
@@ -1047,6 +1046,11 @@ Success:
   }
 }
 ```
+
+Description about API:
+- Supports partial updates. You can send only the fields you want to change.
+- Publishing/unpublishing by updating only `status` is supported.
+- Updating `zones` is blocked with `409 Conflict` if the event already has sold seats.
 
 Failed:
 
@@ -1363,11 +1367,11 @@ Success:
 {
   "success": true,
   "data": {
-    "position": 3,
-    "total_users": 200,
-    "is_in_queue": true,
+    "active_users": 200,
+    "max_active_users": 200,
     "has_access": false,
-    "access_expires_in": null
+    "notice": "Seat selection room is currently full. Please try again in a moment.",
+    "session_expires_in": null
   }
 }
 ```
@@ -1382,7 +1386,9 @@ Failed:
 ```
 
 Description about API:
-- Show the current queue status for the user.
+- Show the current seat-room access status for the user.
+- There is no numbered waiting queue anymore.
+- Seat selection and held-seat checkout share the same booking session TTL.
 - Response keys stay `snake_case`.
 
 ### API: POST `http://localhost:8000/api/queue/join/{event_id}`
@@ -1413,11 +1419,11 @@ Success:
 {
   "success": true,
   "data": {
-    "position": 1,
-    "total_users": 201,
-    "is_in_queue": true,
-    "has_access": false,
-    "access_expires_in": null
+    "active_users": 142,
+    "max_active_users": 200,
+    "has_access": true,
+    "notice": null,
+    "session_expires_in": 900
   }
 }
 ```
@@ -1432,8 +1438,10 @@ Failed:
 ```
 
 Description about API:
-- Join the queue for an event.
-- If the user already has access or is already in the queue, the current status is returned.
+- Request immediate access to the seat-selection room.
+- If `active_users < max_active_users`, access is granted immediately.
+- If the room is full, the API returns `has_access=false` with a human-readable `notice`.
+- The returned `session_expires_in` is the single TTL used for seat selection and all holds made in that event.
 
 ## Recommendation API
 

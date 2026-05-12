@@ -36,16 +36,10 @@ class SeatService:
         if not self.events.get_public_active_by_id(event_id):
             raise ExpiredEventError("event has ended or is unavailable")
 
-    def _has_queue_access(self, event_id: str, user_id: str) -> bool:
+    def _booking_session_ttl(self, event_id: str, user_id: str) -> int:
         if not self.redis:
-            return False
-        access_key = RedisKey.event_access_token(event_id, user_id)
-        return self.redis.ttl(access_key) > 0
-
-    def _has_checkout_access(self, event_id: str, user_id: str) -> bool:
-        if not self.redis:
-            return False
-        return self.redis.ttl(RedisKey.checkout_access(str(event_id), str(user_id))) > 0
+            return -2
+        return self.redis.ttl(RedisKey.booking_session(str(event_id), str(user_id)))
 
     def _session_ttl(self, session_id: str | None, user_id: str) -> int | None:
         if not self.redis or not session_id:
@@ -66,26 +60,6 @@ class SeatService:
         self.redis.zremrangebyscore(hold_index_key, "-inf", now.timestamp())
         return int(self.redis.zcard(hold_index_key))
 
-    def _sync_checkout_lease(self, user_id: str, event_id: str, session_ttl: int | None = None) -> None:
-        if not self.redis:
-            return
-        hold_index_key = self._user_hold_index_key(user_id, event_id)
-        now_ts = datetime.now(UTC).timestamp()
-        self.redis.zremrangebyscore(hold_index_key, "-inf", now_ts)
-        checkout_key = RedisKey.checkout_access(str(event_id), str(user_id))
-        latest = self.redis.zrange(hold_index_key, -1, -1, withscores=True)
-        if not latest:
-            self.redis.delete(checkout_key)
-            return
-        _member, expiry_ts = latest[0]
-        ttl_seconds = max(1, int(expiry_ts - now_ts))
-        if session_ttl is not None:
-            ttl_seconds = min(ttl_seconds, session_ttl)
-        if ttl_seconds <= 0:
-            self.redis.delete(checkout_key)
-            return
-        self.redis.set(checkout_key, "1", ex=ttl_seconds)
-
     def _max_bookable_for_event(self, event) -> int:
         return int(getattr(event, "max_bookable", None) or self.settings.default_max_bookable_per_user)
 
@@ -102,22 +76,23 @@ class SeatService:
         event = self.events.get_public_active_by_id(event_id)
         if not event:
             raise ExpiredEventError("event has ended or is unavailable")
-        if not self._has_queue_access(event_id, user_id):
-            raise ValueError("Please wait in the queue before holding seats.")
+        booking_ttl = self._booking_session_ttl(event_id, user_id)
+        if booking_ttl <= 0:
+            raise ValueError("Please start seat booking before holding seats.")
 
         now = datetime.now(UTC)
         self._enforce_max_bookable(event, user_id, requested_count=1, now=now)
         session_ttl = self._session_ttl(session_id, user_id)
-        hold_seconds = self.settings.hold_ttl_seconds
         if session_ttl is not None:
-            hold_seconds = min(hold_seconds, session_ttl)
-        if hold_seconds <= 0:
+            booking_ttl = min(booking_ttl, session_ttl)
+            self.redis.expire(RedisKey.booking_session(str(event_id), str(user_id)), booking_ttl)
+        if booking_ttl <= 0:
             raise ValueError("Session has expired. Please sign in again.")
-        locked_until = now + timedelta(seconds=hold_seconds)
+        locked_until = now + timedelta(seconds=booking_ttl)
         lock_key = RedisKey.seat_lock(event_id, seat_id)
         lock_payload = dumps_payload({"user_id": user_id, "locked_until": locked_until.isoformat()})
 
-        if not self.redis.set(lock_key, lock_payload, ex=hold_seconds, nx=True):
+        if not self.redis.set(lock_key, lock_payload, ex=booking_ttl, nx=True):
             raise ValueError("Seat is already held by another user.")
 
         try:
@@ -146,8 +121,7 @@ class SeatService:
             self.db.commit()
             hold_index_key = self._user_hold_index_key(user_id, event_id)
             self.redis.zadd(hold_index_key, {str(seat_id): locked_until.timestamp()})
-            self.redis.expire(hold_index_key, hold_seconds)
-            self._sync_checkout_lease(user_id, event_id, session_ttl=session_ttl)
+            self.redis.expire(hold_index_key, booking_ttl)
             await connection_manager.broadcast(
                 event_id,
                 {
@@ -200,7 +174,6 @@ class SeatService:
 
         self.redis.delete(lock_key)
         self.redis.zrem(self._user_hold_index_key(user_id, event_id), str(seat_id))
-        self._sync_checkout_lease(user_id, event_id)
 
         await connection_manager.broadcast(
             event_id,

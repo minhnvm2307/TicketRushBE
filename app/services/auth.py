@@ -19,8 +19,6 @@ class AuthService:
         self.redis = get_redis_client() if redis_is_enabled() else None
 
     def register(self, payload: RegisterRequest) -> User:
-        if payload.date_of_birth >= date.today():
-            raise ValueError("date_of_birth must be in the past")
         if self.users.get_by_email(payload.email):
             raise ValueError("email already exists")
 

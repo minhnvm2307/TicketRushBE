@@ -4,7 +4,7 @@ from app.api.deps import AdminUser, DbSession
 from app.core.exceptions import ConflictError
 from app.core.responses import success_response
 # from app.schemas.dashboard import DashboardResponse, DemographicsResponse
-from app.schemas.event import EventCreateRequest, SeatZonePayload
+from app.schemas.event import EventCreateRequest, EventUpdateRequest, SeatZonePayload
 from app.services.dashboard import DashboardService
 from app.services.events import EventService
 from app.services.seats import SeatService
@@ -24,7 +24,7 @@ def create_event(payload: EventCreateRequest, db: DbSession, user: AdminUser):
 
 
 @router.put("/events/{event_id}")
-def update_event(event_id: str, payload: EventCreateRequest, db: DbSession, user: AdminUser):
+def update_event(event_id: str, payload: EventUpdateRequest, db: DbSession, user: AdminUser):
     try:
         return success_response(EventService(db).serialize(EventService(db).update(event_id, payload, host_id=user.id)))
     except PermissionError as exc:

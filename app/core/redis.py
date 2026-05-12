@@ -43,13 +43,9 @@ class RedisKey:
         return f"ticketrush:event:{event_id}:queue"
 
     @staticmethod
-    def event_access_token(event_id: str, user_id: str) -> str:
-        return f"ticketrush:event:{event_id}:access_token:{user_id}"
+    def booking_session(event_id: str, user_id: str) -> str:
+        return f"ticketrush:event:{event_id}:booking_session:{user_id}"
 
     @staticmethod
     def user_event_hold_index(user_id: str, event_id: str) -> str:
         return f"ticketrush:user:{user_id}:event:{event_id}:holds"
-
-    @staticmethod
-    def checkout_access(event_id: str, user_id: str) -> str:
-        return f"ticketrush:event:{event_id}:checkout_access:{user_id}"

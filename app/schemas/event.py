@@ -88,7 +88,35 @@ class EventCreateRequest(BaseModel):
 
 
 class EventUpdateRequest(EventCreateRequest):
-    pass
+    title: str | None = Field(default=None, min_length=3, max_length=255)
+    description: str | None = None
+    short_description: str | None = Field(default=None, max_length=500)
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    event_date: datetime | None = None
+    venue: str | None = None
+    banner_url: str | None = None
+    is_private: bool | None = None
+    theme: str | None = Field(default=None, max_length=50)
+    status: EventStatus | None = None
+    categories: list[CategoryPayload] | None = None
+    category_ids: list[UUID] | None = None
+    max_capacity: int | None = Field(default=None, ge=0)
+    seating_type: SeatingType | None = None
+    ticket_type: TicketType | None = None
+    zones: list[SeatZonePayload] | None = None
+
+    @model_validator(mode="after")
+    def validate_time_range(self):
+        if self.start_time is None and self.end_time is None:
+            return self
+        if self.start_time is not None and self.end_time is None:
+            self.end_time = self.start_time + timedelta(hours=2)
+        if self.start_time is None or self.end_time is None:
+            raise ValueError("start_time and end_time must be provided together")
+        if self.end_time <= self.start_time:
+            raise ValueError("end_time must be after start_time")
+        return self
 
 
 class SeatResponse(APIModel):
