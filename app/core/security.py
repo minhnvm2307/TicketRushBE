@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -17,11 +18,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(subject: str | Any) -> str:
+def create_access_token(subject: str | Any, session_id: str | None = None) -> str:
     settings = get_settings()
     payload = {
         "exp": datetime.now(UTC) + timedelta(minutes=settings.access_token_expire_minutes),
         "sub": str(subject),  # Ensure subject is a string
+        "sid": session_id or str(uuid.uuid4()),
     }
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 

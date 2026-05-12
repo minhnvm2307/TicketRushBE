@@ -1,6 +1,7 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.models.enums import TicketStatus
 from app.models.order import Order
 from app.models.seat import Seat, SeatZone
 from app.models.ticket import Ticket
@@ -37,3 +38,18 @@ class OrderRepository:
             )
         )
         return self.db.scalar(stmt)
+
+    def count_tickets_by_user_event(self, user_id: str, event_id: str) -> int:
+        stmt = select(func.count(Ticket.id)).where(
+            Ticket.user_id == user_id,
+            Ticket.event_id == event_id,
+            Ticket.status != TicketStatus.REFUNDED,
+        )
+        return int(self.db.scalar(stmt) or 0)
+
+    def count_tickets_by_event(self, event_id: str) -> int:
+        stmt = select(func.count(Ticket.id)).where(
+            Ticket.event_id == event_id,
+            Ticket.status != TicketStatus.REFUNDED,
+        )
+        return int(self.db.scalar(stmt) or 0)

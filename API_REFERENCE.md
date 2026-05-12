@@ -504,6 +504,7 @@ Failed:
 Description about API:
 - Hold a seat for a limited time.
 - Redis must be available.
+- The user must first join the queue and wait until `has_access` becomes `true` for the event.
 - The seat must belong to the same event in the request body.
 
 ### API: DELETE `http://localhost:8000/api/seats/{seat_id}/hold`

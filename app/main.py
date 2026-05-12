@@ -13,6 +13,7 @@ from app.core.telemetry import MetricsMiddleware, metrics_response
 from app.db.session import Base, engine, SessionLocal
 from app.services.bootstrap import BootstrapService
 from app.workers.process_queue import process_queues_job
+from app.workers.release_expired_holds import release_expired_holds_job
 
 
 @asynccontextmanager
@@ -27,11 +28,17 @@ async def lifespan(_: FastAPI):
 
     # Start the queue processing worker in the background
     worker_task = asyncio.create_task(process_queues_job())
+    release_task = asyncio.create_task(release_expired_holds_job())
     yield
     # Clean up the worker task
     worker_task.cancel()
+    release_task.cancel()
     try:
         await worker_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await release_task
     except asyncio.CancelledError:
         pass
 

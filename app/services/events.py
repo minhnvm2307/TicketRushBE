@@ -2,7 +2,7 @@ from re import sub
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ConflictError
+from app.core.exceptions import ConflictError, ExpiredEventError
 from app.models.event import Category, Event
 from app.models.seat import Seat, SeatZone
 from app.repositories.event import EventRepository
@@ -71,9 +71,9 @@ class EventService:
         return f"{title.strip()} {description.strip()}".strip()
 
     def get_public_detail(self, event_id: str) -> Event:
-        event = self.repo.get_by_id(event_id)
+        event = self.repo.get_public_active_by_id(event_id)
         if not event:
-            raise ValueError("event not found")
+            raise ExpiredEventError("event has ended or is unavailable")
         return event
     
     def list_managed_by_host(self, host_id: str) -> list[Event]:

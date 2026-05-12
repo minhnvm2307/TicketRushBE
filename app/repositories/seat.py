@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.enums import SeatStatus
+from app.models.enums import SeatStatus, ZoneType
 from app.models.seat import Seat, SeatZone
 
 
@@ -25,6 +25,14 @@ class SeatRepository:
     def get_many_by_ids_for_update(self, seat_ids: list[str]) -> list[Seat]:
         stmt = select(Seat).where(Seat.id.in_(seat_ids)).options(joinedload(Seat.zone))
         return list(self.db.scalars(stmt).unique().all())
+
+    def get_general_admission_zone_for_event(self, event_id: str) -> SeatZone | None:
+        stmt = (
+            select(SeatZone)
+            .where(SeatZone.event_id == event_id, SeatZone.zone_type == ZoneType.GENERAL_ADMISSION)
+            .order_by(SeatZone.price.asc(), SeatZone.name.asc())
+        )
+        return self.db.scalar(stmt)
 
     def count_statuses_by_event(self, event_id: str) -> dict[str, int]:
         stmt = (
@@ -50,7 +58,7 @@ class SeatRepository:
         self.db.flush()
         return zone
 
-    def release_expired_holds(self, now: datetime) -> int:
+    def release_expired_holds(self, now: datetime) -> list[Seat]:
         stmt = (
             select(Seat)
             .where(
@@ -65,4 +73,4 @@ class SeatRepository:
             seat.status = SeatStatus.AVAILABLE
             seat.locked_by = None
             seat.locked_until = None
-        return len(seats)
+        return seats

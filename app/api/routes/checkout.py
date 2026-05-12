@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import Response
 
 from app.api.deps import CurrentUser, DbSession
+from app.core.exceptions import ExpiredEventError
 from app.core.responses import success_response
 from app.schemas.checkout import (
     CheckoutRequest,
@@ -62,7 +63,12 @@ def build_ticket_detail_response(ticket) -> TicketDetailResponse:
 @router.post("/checkout")
 async def checkout(payload: CheckoutRequest, db: DbSession, user: CurrentUser):
     try:
-        order, tickets = await CheckoutService(db).checkout(payload.seat_ids, str(user.id), payload.event_id)
+        order, tickets = await CheckoutService(db).checkout(
+            [str(seat_id) for seat_id in payload.seat_ids],
+            str(user.id),
+            str(payload.event_id),
+            payload.quantity,
+        )
         return success_response(CheckoutResponse(
             order_id=order.id,
             total_amount=float(order.total_amount),
@@ -79,6 +85,8 @@ async def checkout(payload: CheckoutRequest, db: DbSession, user: CurrentUser):
                 for ticket in tickets
             ],
         ))
+    except ExpiredEventError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ConnectionError as exc:

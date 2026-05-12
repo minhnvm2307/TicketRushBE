@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.deps import DbSession
+from app.core.exceptions import ExpiredEventError
 from app.core.responses import success_response
 from app.services.events import EventService
 from app.services.seats import SeatService
@@ -14,6 +15,8 @@ def get_event(event_id: str, db: DbSession):
     try:
         event = EventService(db).get_public_detail(event_id)
         return success_response(EventService(db).serialize(event))
+    except ExpiredEventError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
@@ -30,4 +33,7 @@ def list_events(
 
 @router.get("/{event_id}/seats")
 def get_event_seats(event_id: str, db: DbSession):
-    return success_response(SeatService(db).get_seat_map(event_id))
+    try:
+        return success_response(SeatService(db).get_seat_map(event_id))
+    except ExpiredEventError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

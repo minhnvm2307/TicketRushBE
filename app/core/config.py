@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str = Field(alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(default=1440, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
+    default_max_bookable_per_user: int = Field(default=6, alias="DEFAULT_MAX_BOOKABLE_PER_USER")
 
     hold_duration_minutes: int = Field(default=10, alias="HOLD_DURATION_MINUTES")
     queue_threshold: int = Field(default=200, alias="QUEUE_THRESHOLD")
@@ -45,6 +46,14 @@ class Settings(BaseSettings):
     default_user_email: str = Field(alias="DEFAULT_USER_EMAIL")
     default_user_password: str = Field(alias="DEFAULT_USER_PASSWORD")
     default_user_name: str = Field(alias="DEFAULT_USER_NAME")
+
+    @property
+    def access_token_ttl_seconds(self) -> int:
+        return self.access_token_expire_minutes * 60
+
+    @property
+    def hold_ttl_seconds(self) -> int:
+        return self.hold_duration_minutes * 60
 
     @property
     def cors_origins_list(self) -> list[str]:

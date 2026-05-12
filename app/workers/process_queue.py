@@ -11,6 +11,11 @@ from app.repositories.event import EventRepository
 logger = logging.getLogger(__name__)
 
 
+def _active_access_count(redis_client, event_id: str) -> int:
+    pattern = RedisKey.event_access_token(event_id, "*")
+    return sum(1 for _ in redis_client.scan_iter(match=pattern))
+
+
 async def process_queues_job():
     """
     Worker xử lý hàng đợi ảo (Virtual Queue).
@@ -41,7 +46,19 @@ async def process_queues_job():
             continue
 
         # Convert UUID sang string để làm Redis Key
-        queue_keys = [RedisKey.event_queue(str(event.id)) for event in active_events]
+        eligible_events = []
+        for event in active_events:
+            event_id_str = str(event.id)
+            if settings.queue_threshold > 0 and _active_access_count(redis_client, event_id_str) >= settings.queue_threshold:
+                continue
+            eligible_events.append(event)
+
+        if not eligible_events:
+            logger.info("Queue at capacity for all active events. Sleeping 3s...")
+            await asyncio.sleep(3)
+            continue
+
+        queue_keys = [RedisKey.event_queue(str(event.id)) for event in eligible_events]
 
         # ==========================================
         # BƯỚC 2: Rình bắt User trong Redis (Nằm vùng 3 giây)
@@ -58,11 +75,15 @@ async def process_queues_job():
             # ==========================================
             # BƯỚC 3: Cấp Token
             # ==========================================
-            queue_name, (user_id, _) = result
-            
-            # SỬA LỖI: ID bây giờ là UUID, không dùng int() nữa
-            event_id_str = queue_name.decode("utf-8").split(":")[-2]
-            user_id_str = user_id.decode("utf-8")
+            queue_name, user_id, _score = result
+
+            if isinstance(queue_name, bytes):
+                queue_name = queue_name.decode("utf-8")
+            if isinstance(user_id, bytes):
+                user_id = user_id.decode("utf-8")
+
+            event_id_str = queue_name.split(":")[-2]
+            user_id_str = str(user_id)
 
             access_key = RedisKey.event_access_token(event_id_str, user_id_str)
             

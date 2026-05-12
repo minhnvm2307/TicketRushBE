@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 
+from app.core.redis import RedisKey, get_redis_client, redis_is_enabled
 from app.core.security import decode_access_token
 from app.repositories.user import UserRepository
 from app.db.session import SessionLocal
@@ -28,6 +29,12 @@ async def admin_dashboard_updates(websocket: WebSocket, event_id: str, token: st
     except ValueError:
         await websocket.close(code=1008)
         return
+    session_id = payload.get("sid")
+    if session_id and redis_is_enabled():
+        session_user_id = get_redis_client().get(RedisKey.auth_session(session_id))
+        if session_user_id != str(payload["sub"]):
+            await websocket.close(code=1008)
+            return
 
     db = SessionLocal()
     try:

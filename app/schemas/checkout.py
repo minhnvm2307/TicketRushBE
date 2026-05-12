@@ -1,15 +1,22 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 from app.models.enums import TicketStatus
 from app.schemas.common import APIModel
 
 
 class CheckoutRequest(BaseModel):
-    seat_ids: list[UUID]
     event_id: UUID
+    seat_ids: list[UUID] = Field(default_factory=list)
+    quantity: int = 1
+
+    @model_validator(mode="after")
+    def validate_checkout_type(self) -> "CheckoutRequest":
+        if self.quantity < 1:
+            raise ValueError("quantity must be at least 1")
+        return self
 
 
 class TicketItemResponse(APIModel):

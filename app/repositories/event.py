@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from app.services.embedding import generate_embedding
 
 from sqlalchemy import func, select
@@ -20,10 +20,16 @@ class EventRepository:
         self, search: str | None = None, date_from: datetime | None = None, date_to: datetime | None = None
     ) -> list[tuple[Event, float | None]]:
         cosine_distance = None
+        now = datetime.now(UTC)
 
         stmt = (
             select(Event)
-            .where(Event.status == EventStatus.PUBLISHED, Event.is_private.is_(False))
+            .where(
+                Event.status == EventStatus.PUBLISHED,
+                Event.is_private.is_(False),
+                Event.deleted_at.is_(None),
+                Event.end_time > now,
+            )
             .options(joinedload(Event.categories), joinedload(Event.zones))
         )
 
@@ -48,27 +54,57 @@ class EventRepository:
         return [(event, float(distance) if distance is not None else None) for event, distance in rows]
 
     def list_recommendable(self) -> list[Event]:
+        now = datetime.now(UTC)
         stmt = (
             select(Event)
-            .where(Event.status == EventStatus.PUBLISHED)
+            .where(
+                Event.status == EventStatus.PUBLISHED,
+                Event.is_private.is_(False),
+                Event.deleted_at.is_(None),
+                Event.end_time > now,
+            )
             .options(joinedload(Event.categories))
         )
         return list(self.db.scalars(stmt).unique().all())
 
     def list_public_missing_embeddings(self) -> list[Event]:
+        now = datetime.now(UTC)
         stmt = select(Event).where(
             Event.status == EventStatus.PUBLISHED,
             Event.is_private.is_(False),
+            Event.deleted_at.is_(None),
+            Event.end_time > now,
             Event.embedding.is_(None),
         )
         return list(self.db.scalars(stmt).all())
 
     def list_public_published(self) -> list[Event]:
+        now = datetime.now(UTC)
         stmt = select(Event).where(
             Event.status == EventStatus.PUBLISHED,
             Event.is_private.is_(False),
+            Event.deleted_at.is_(None),
+            Event.end_time > now,
         )
         return list(self.db.scalars(stmt).all())
+
+    def get_public_active_by_id(self, event_id: str) -> Event | None:
+        now = datetime.now(UTC)
+        stmt = (
+            select(Event)
+            .where(
+                Event.id == event_id,
+                Event.status == EventStatus.PUBLISHED,
+                Event.is_private.is_(False),
+                Event.deleted_at.is_(None),
+                Event.end_time > now,
+            )
+            .options(
+                joinedload(Event.categories),
+                joinedload(Event.zones).joinedload(SeatZone.seats),
+            )
+        )
+        return self.db.scalar(stmt)
 
     def get_by_id(self, event_id: str) -> Event | None:
         stmt = (
@@ -102,11 +138,11 @@ class EventRepository:
         Returns a list of active, published events that have not ended yet.
         This is used by the queue processing worker.
         """
-        now = datetime.now()
+        now = datetime.now(UTC)
         stmt = select(Event).where(
             Event.status == EventStatus.PUBLISHED,
             Event.end_time > now,
-            Event.deleted_at.is_(None)
+            Event.deleted_at.is_(None),
         )
         return list(self.db.scalars(stmt).all())
     
