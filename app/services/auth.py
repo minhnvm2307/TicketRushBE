@@ -7,7 +7,7 @@ from app.core.redis import RedisKey, get_redis_client, redis_is_enabled
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
 from app.repositories.user import UserRepository
-from app.schemas.auth import LoginRequest, RegisterRequest
+from app.schemas.auth import LoginRequest, RegisterRequest, UpdateProfileRequest
 
 
 class AuthService:
@@ -51,4 +51,20 @@ class AuthService:
         user = self.users.get_by_id(user_id)
         if not user:
             raise ValueError("user not found")
+        return user
+
+    def update_profile(self, user_id: str, payload: UpdateProfileRequest) -> User:
+        user = self.users.get_by_id(user_id)
+        if not user:
+            raise ValueError("user not found")
+
+        if payload.full_name is not None:
+            user.full_name = payload.full_name
+        if payload.date_of_birth is not None:
+            user.date_of_birth = payload.date_of_birth
+        if payload.gender is not None:
+            user.gender = payload.gender
+
+        self.db.commit()
+        self.db.refresh(user)
         return user

@@ -230,6 +230,8 @@ Success:
     "id": "c2d9f7a0-7d86-4e54-b3cf-5ccf5c1c9c15",
     "email": "user@example.com",
     "fullName": "Nguyen Van A",
+    "dateOfBirth": "2000-01-15",
+    "gender": "MALE",
     "role": "CUSTOMER"
   }
 }
@@ -247,6 +249,64 @@ Failed:
 Description about API:
 - Return the authenticated user profile.
 - The token must be valid and the user must still exist.
+
+### API: PATCH `http://localhost:8000/api/auth/me`
+
+Input request:
+
+- Header: `Authorization: Bearer <access_token>`
+- Header: `Content-Type: application/json`
+- Body: JSON with at least one editable profile field
+
+samples:
+
+```json
+{
+  "full_name": "Nguyen Van B",
+  "date_of_birth": "2001-02-20",
+  "gender": "FEMALE"
+}
+```
+
+Response format:
+
+- Success status: `200 OK`
+- Success body: standard envelope with the updated profile
+- Failed status: `401 Unauthorized`, `404 Not Found`, or `422 Unprocessable Entity`
+
+samples:
+
+Success:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "c2d9f7a0-7d86-4e54-b3cf-5ccf5c1c9c15",
+    "email": "user@example.com",
+    "fullName": "Nguyen Van B",
+    "dateOfBirth": "2001-02-20",
+    "gender": "FEMALE",
+    "role": "CUSTOMER"
+  }
+}
+```
+
+Failed:
+
+```json
+{
+  "success": false,
+  "error": "[{\"type\": \"value_error\", \"loc\": [\"body\"], ...}]"
+}
+```
+
+Description about API:
+- Update only the authenticated user's editable profile fields: `full_name`, `date_of_birth`, and `gender`.
+- `email`, `password_hash`, and `role` cannot be changed through this endpoint.
+- `full_name` is trimmed and must be at least 2 characters after trimming.
+- `date_of_birth` must be in the past.
+- Empty bodies and explicit `null` values are rejected.
 
 ## Event APIs (BIG UPDATE)
 

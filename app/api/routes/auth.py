@@ -2,7 +2,14 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession
 from app.core.responses import success_response
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.schemas.auth import (
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UpdateProfileRequest,
+    UserProfileResponse,
+    UserResponse,
+)
 from app.services.auth import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -31,4 +38,13 @@ def login(payload: LoginRequest, db: DbSession):
 
 @router.get("/me")
 def me(user: CurrentUser):
-    return success_response(UserResponse.model_validate(user))
+    return success_response(UserProfileResponse.model_validate(user))
+
+
+@router.patch("/me")
+def update_me(payload: UpdateProfileRequest, user: CurrentUser, db: DbSession):
+    try:
+        updated_user = AuthService(db).update_profile(user.id, payload)
+        return success_response(UserProfileResponse.model_validate(updated_user))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
