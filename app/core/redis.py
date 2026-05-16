@@ -35,6 +35,10 @@ class RedisKey:
         return f"ticketrush:auth:session:{session_id}"
 
     @staticmethod
+    def password_reset(email: str) -> str:
+        return f"ticketrush:auth:password_reset:{email}"
+
+    @staticmethod
     def seat_lock(event_id: str, seat_id: str) -> str:
         return f"ticketrush:event:{event_id}:seat:{seat_id}:lock"
 
