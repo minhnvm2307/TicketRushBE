@@ -199,6 +199,107 @@ Description about API:
 - `password` must be a non-empty string.
 - Returns the access token and the current user profile.
 
+### API: POST `http://localhost:8000/api/auth/forgot-password`
+
+Input request:
+
+- Header: `Content-Type: application/json`
+- Body: JSON
+- Optional environment for email delivery: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_USE_TLS`
+- Optional environment for code expiry: `PASSWORD_RESET_CODE_TTL_MINUTES`
+
+samples:
+
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+Response format:
+
+- Success status: `200 OK`
+- Success body: standard envelope with a generic message
+- Failed status: `422 Unprocessable Entity` or `503 Service Unavailable`
+
+samples:
+
+Success:
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "If the email exists, a verification code has been sent."
+  }
+}
+```
+
+Failed:
+
+```json
+{
+  "success": false,
+  "error": "unable to send email"
+}
+```
+
+Description about API:
+- Generate a 6-digit verification code for password reset and send it by email.
+- The response is intentionally generic so attackers cannot discover registered emails.
+- The verification code is stored as a hash in Redis when Redis is enabled. In local/dev without Redis, a temporary in-memory store is used.
+- If SMTP settings are missing, the email service currently no-ops so you can add real email credentials later without changing the API.
+
+### API: POST `http://localhost:8000/api/auth/reset-password`
+
+Input request:
+
+- Header: `Content-Type: application/json`
+- Body: JSON
+
+samples:
+
+```json
+{
+  "email": "user@example.com",
+  "code": "123456",
+  "new_password": "NewPassword123!"
+}
+```
+
+Response format:
+
+- Success status: `200 OK`
+- Success body: standard envelope with a message
+- Failed status: `400 Bad Request` or `422 Unprocessable Entity`
+
+samples:
+
+Success:
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Password has been reset."
+  }
+}
+```
+
+Failed:
+
+```json
+{
+  "success": false,
+  "error": "invalid or expired verification code"
+}
+```
+
+Description about API:
+- Reset password using email, 6-digit code, and a new password.
+- `new_password` must be 8 to 255 characters.
+- A verification code can be used only once and is deleted after a successful reset.
+
 ### API: GET `http://localhost:8000/api/auth/me`
 
 Input request:

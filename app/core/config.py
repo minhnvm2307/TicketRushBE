@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(default=1440, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     default_max_bookable_per_user: int = Field(default=6, alias="DEFAULT_MAX_BOOKABLE_PER_USER")
+    password_reset_code_ttl_minutes: int = Field(default=10, alias="PASSWORD_RESET_CODE_TTL_MINUTES")
+    smtp_host: str = Field(default="", alias="SMTP_HOST")
+    smtp_port: int = Field(default=587, alias="SMTP_PORT")
+    smtp_username: str = Field(default="", alias="SMTP_USERNAME")
+    smtp_password: str = Field(default="", alias="SMTP_PASSWORD")
+    smtp_from_email: str = Field(default="", alias="SMTP_FROM_EMAIL")
+    smtp_use_tls: bool = Field(default=True, alias="SMTP_USE_TLS")
 
     hold_duration_minutes: int = Field(default=10, alias="HOLD_DURATION_MINUTES")
     queue_threshold: int = Field(default=200, alias="QUEUE_THRESHOLD")
@@ -50,6 +57,10 @@ class Settings(BaseSettings):
     @property
     def access_token_ttl_seconds(self) -> int:
         return self.access_token_expire_minutes * 60
+
+    @property
+    def password_reset_code_ttl_seconds(self) -> int:
+        return self.password_reset_code_ttl_minutes * 60
 
     @property
     def hold_ttl_seconds(self) -> int:
