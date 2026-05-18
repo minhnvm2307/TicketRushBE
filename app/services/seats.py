@@ -27,14 +27,21 @@ class SeatService:
         self.redis = get_redis_client() if redis_is_enabled() else None
 
     def get_seat_map(self, event_id: str) -> SeatMapResponse:
-        self._require_active_event(event_id)
+        event = self._require_active_event(event_id)
         zones = self.seats.list_by_event(event_id)
         zone_responses = [SeatMapZoneResponse.model_validate(zone) for zone in zones]
-        return SeatMapResponse(event_id=event_id, zones=zone_responses)
+        return SeatMapResponse(
+            event_id=event_id,
+            seat_map_rows=event.seat_map_rows,
+            seat_map_cols=event.seat_map_cols,
+            zones=zone_responses,
+        )
 
-    def _require_active_event(self, event_id: str) -> None:
-        if not self.events.get_public_active_by_id(event_id):
+    def _require_active_event(self, event_id: str):
+        event = self.events.get_public_active_by_id(event_id)
+        if not event:
             raise ExpiredEventError("event has ended or is unavailable")
+        return event
 
     def _booking_session_ttl(self, event_id: str, user_id: str) -> int:
         if not self.redis:
@@ -99,7 +106,7 @@ class SeatService:
             with self.db.begin_nested():
                 self.seats.release_expired_holds(now)
                 seat = self.seats.get_by_id_for_update(seat_id)
-                if not seat or str(seat.zone.event_id) != str(event_id):
+                if not seat or str(seat.event_id) != str(event_id):
                     raise ValueError("Seat not found for this event.")
                 if seat.zone.zone_type != ZoneType.ASSIGNED:
                     raise ValueError("Seat holds are only supported for assigned seating.")
@@ -159,7 +166,7 @@ class SeatService:
         try:
             with self.db.begin_nested():
                 seat = self.seats.get_by_id_for_update(seat_id)
-                if not seat or str(seat.zone.event_id) != str(event_id):
+                if not seat or str(seat.event_id) != str(event_id):
                     raise ValueError("Seat not found for this event.")
                 if str(seat.locked_by) != str(user_id):
                     raise ValueError("Seat is not held by the current user.")
@@ -191,20 +198,26 @@ class SeatService:
         return [SeatMapZoneResponse.model_validate(zone) for zone in zones]
 
     def create_zone(self, event_id: str, payload) -> SeatZone:
+        is_assigned_zone = getattr(payload, "zone_type", ZoneType.ASSIGNED) == ZoneType.ASSIGNED
         zone = SeatZone(
             event_id=event_id,
             name=payload.name,
             zone_type=getattr(payload, "zone_type", ZoneType.ASSIGNED),
-            rows=payload.rows,
-            cols=payload.cols,
-            price=payload.price,
-            capacity=payload.capacity or (payload.rows * payload.cols),
+            price=payload.price or 0,
+            capacity=len(payload.seats) if is_assigned_zone else (payload.capacity or 1),
             color=payload.color,
         )
-        for row in range(1, payload.rows + 1):
-            for col in range(1, payload.cols + 1):
-                label = f"{payload.name.upper().replace(' ', '_')}-{chr(64 + row)}{col:02d}"
-                zone.seats.append(Seat(label=label, row_index=row - 1, col_index=col - 1))
+        if is_assigned_zone:
+            for seat_payload in payload.seats:
+                zone.seats.append(
+                    Seat(
+                        event_id=event_id,
+                        label=seat_payload.label.strip(),
+                        row_index=seat_payload.row_index,
+                        col_index=seat_payload.col_index,
+                        display_order=seat_payload.display_order,
+                    )
+                )
         self.seats.create_zone(zone)
         self.db.commit()
         self.db.refresh(zone)
@@ -216,8 +229,8 @@ class SeatService:
             "id": zone.id,
             "name": zone.name,
             "zone_type": zone.zone_type.value,
-            "rows": zone.rows,
-            "cols": zone.cols,
+            "rows": None,
+            "cols": None,
             "price": float(zone.price),
             "capacity": zone.capacity,
             "color": zone.color,
@@ -231,6 +244,7 @@ class SeatService:
             "label": seat.label,
             "row_index": seat.row_index,
             "col_index": seat.col_index,
+            "display_order": seat.display_order,
             "status": seat.status.value,
             "locked_by": str(seat.locked_by) if seat.locked_by else None,
             "locked_until": seat.locked_until.isoformat() if seat.locked_until else None

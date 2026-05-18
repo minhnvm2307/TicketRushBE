@@ -88,7 +88,7 @@ class CheckoutService:
                 seats = self.seats.get_many_by_ids_for_update(seat_ids)
                 if len(seats) != len(seat_ids):
                     raise ValueError("One or more seats do not exist.")
-                event_ids = {str(seat.zone.event_id) for seat in seats}
+                event_ids = {str(seat.event_id) for seat in seats}
                 if event_ids != {str(event_id)}:
                     raise ValueError("One or more seats do not belong to this event.")
 

@@ -17,8 +17,6 @@ class SeatZone(Base):
     event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(100))
     zone_type: Mapped[ZoneType] = mapped_column(Enum(ZoneType, name="zone_type_enum"), default=ZoneType.ASSIGNED)
-    rows: Mapped[int | None]
-    cols: Mapped[int | None]
     price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     capacity: Mapped[int]
     color: Mapped[str] = mapped_column(String(20))
@@ -27,18 +25,23 @@ class SeatZone(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     event = relationship("Event", back_populates="zones")
-    seats = relationship("Seat", back_populates="zone", cascade="all, delete-orphan")
+    seats = relationship("Seat", back_populates="zone", cascade="all, delete-orphan", order_by="Seat.display_order")
 
 
 class Seat(Base):
     __tablename__ = "seats"
-    __table_args__ = (UniqueConstraint("zone_id", "row_index", "col_index", name="uq_zone_position"),)
+    __table_args__ = (
+        UniqueConstraint("event_id", "row_index", "col_index", name="uq_seats_event_position"),
+        UniqueConstraint("event_id", "label", name="uq_seats_event_label"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
     zone_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("seat_zones.id", ondelete="CASCADE"), index=True)
     label: Mapped[str] = mapped_column(String(30))
     row_index: Mapped[int]
     col_index: Mapped[int]
+    display_order: Mapped[int] = mapped_column(default=0)
     status: Mapped[SeatStatus] = mapped_column(Enum(SeatStatus, name="seat_status_enum"), default=SeatStatus.AVAILABLE)
     locked_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -110,6 +110,10 @@ CREATE TABLE public.events (
     -- Với GA event: đây là cap tổng. Với ASSIGNED event: cap tự động = tổng seats.
     max_capacity      INTEGER       CHECK (max_capacity > 0),
 
+    -- Explicit seat-map grid size. NULL for GENERAL_ADMISSION.
+    seat_map_rows     INTEGER       CHECK (seat_map_rows > 0),
+    seat_map_cols     INTEGER       CHECK (seat_map_cols > 0),
+
     -- Recommendation / AI
     embedding         vector(384),
 
@@ -140,19 +144,15 @@ CREATE TABLE public.event_categories (
 -- SEAT ZONES
 -- [FIX #3] zone_type → mỗi zone có thể ASSIGNED hoặc GA độc lập
 --           price DEFAULT 0 → free zone
---           rows/cols nullable → không bắt buộc với GA zone
+--           capacity = số seats explicit với ASSIGNED, cap với GA
 -- ------------------------------------------------------------------------------
 CREATE TABLE public.seat_zones (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id   UUID          NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
     name       VARCHAR(100)  NOT NULL,
 
-    -- [FIX #3] loại zone: ASSIGNED → sinh seats[], GA → chỉ đếm capacity
+    -- [FIX #3] loại zone: ASSIGNED → seats explicit, GA → chỉ đếm capacity
     zone_type  public.zone_type_enum NOT NULL DEFAULT 'ASSIGNED',
-
-    -- Chỉ dùng khi zone_type = ASSIGNED
-    rows       SMALLINT      CHECK (rows > 0),
-    cols       SMALLINT      CHECK (cols > 0),
 
     -- Tổng sức chứa zone (bắt buộc với GA, auto-computed với ASSIGNED)
     capacity   INTEGER       NOT NULL CHECK (capacity > 0),
@@ -166,12 +166,7 @@ CREATE TABLE public.seat_zones (
     updated_at TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
 
-    CONSTRAINT uq_event_zone_name UNIQUE (event_id, name),
-    -- Đảm bảo ASSIGNED zone phải có rows & cols
-    CONSTRAINT chk_assigned_zone CHECK (
-        zone_type = 'GENERAL_ADMISSION'
-        OR (rows IS NOT NULL AND cols IS NOT NULL)
-    )
+    CONSTRAINT uq_event_zone_name UNIQUE (event_id, name)
 );
 
 -- ------------------------------------------------------------------------------
@@ -182,10 +177,12 @@ CREATE TABLE public.seat_zones (
 -- ------------------------------------------------------------------------------
 CREATE TABLE public.seats (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id    UUID          NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
     zone_id     UUID          NOT NULL REFERENCES public.seat_zones(id) ON DELETE CASCADE,
     label       VARCHAR(30)   NOT NULL,
     row_index   SMALLINT      NOT NULL CHECK (row_index >= 0),
     col_index   SMALLINT      NOT NULL CHECK (col_index >= 0),
+    display_order INTEGER     NOT NULL DEFAULT 0 CHECK (display_order >= 0),
 
     -- [FIX #3] LOCKED trả lại
     status      public.seat_status_enum NOT NULL DEFAULT 'AVAILABLE',
@@ -194,7 +191,8 @@ CREATE TABLE public.seats (
     locked_by   UUID          REFERENCES public.users(id) ON DELETE SET NULL,
     locked_until TIMESTAMPTZ,
 
-    CONSTRAINT uq_zone_position UNIQUE (zone_id, row_index, col_index),
+    CONSTRAINT uq_seats_event_position UNIQUE (event_id, row_index, col_index),
+    CONSTRAINT uq_seats_event_label UNIQUE (event_id, label),
     -- locked_by và locked_until phải cùng null hoặc cùng có giá trị
     CONSTRAINT chk_lock_consistency CHECK (
         (locked_by IS NULL AND locked_until IS NULL)
@@ -301,6 +299,7 @@ CREATE INDEX ix_events_active         ON public.events (status)
 CREATE INDEX ix_seat_zones_event_id   ON public.seat_zones (event_id);
 CREATE INDEX ix_seat_zones_active     ON public.seat_zones (event_id)
     WHERE deleted_at IS NULL;
+CREATE INDEX ix_seats_event_id        ON public.seats (event_id);
 CREATE INDEX ix_seats_zone_id         ON public.seats (zone_id);
 -- Index cho background job giải phóng seat hết hạn
 CREATE INDEX ix_seats_locked_until    ON public.seats (locked_until)

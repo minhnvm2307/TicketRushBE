@@ -37,8 +37,7 @@ class SeatRepository:
     def count_statuses_by_event(self, event_id: str) -> dict[str, int]:
         stmt = (
             select(Seat.status, func.count(Seat.id))
-            .join(SeatZone, Seat.zone_id == SeatZone.id)
-            .where(SeatZone.event_id == event_id)
+            .where(Seat.event_id == event_id)
             .group_by(Seat.status)
         )
         rows = self.db.execute(stmt).all()

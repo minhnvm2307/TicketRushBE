@@ -100,3 +100,13 @@ def generate_embedding(text: str) -> list[float]:
         return _get_onnx_embedder().embed(text)
 
     return _generate_embedding_http(text)
+
+
+def generate_embedding_or_zero(text: str) -> list[float]:
+    settings = get_settings()
+    try:
+        return generate_embedding(text)
+    except (httpx.HTTPError, RuntimeError, OSError):
+        # Event writes must not fail just because the optional search embedding
+        # service is still booting or temporarily unavailable.
+        return [0.0] * settings.embedding_dimension

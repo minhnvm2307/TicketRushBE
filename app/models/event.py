@@ -3,7 +3,7 @@ from datetime import datetime
 import numpy as np
 from pgvector.sqlalchemy import Vector
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, Table, Text, UniqueConstraint, func
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, Table, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -50,6 +50,8 @@ class Event(Base):
         default=SeatingType.ASSIGNED,
     )
     max_capacity: Mapped[int | None]
+    seat_map_rows: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    seat_map_cols: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

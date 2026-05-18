@@ -518,6 +518,8 @@ Success:
     "isPrivate":false,
     "theme":"music-vibrant",
     "status":"PUBLISHED",
+    "seatMapRows":10,
+    "seatMapCols":20,
     "categories": [
       {
         "id": "bd35fda2-6005-4b42-b898-58d7b0591a81",
@@ -529,13 +531,12 @@ Success:
     "zones": [
       {
         "id":"a4190480-8dfc-4486-a375-7dbf8de2abd8","name":"VIP",
-        "rows":6,
-        "cols":8,
+        "zoneType":"ASSIGNED",
         "price":1800000.0,
-        "capacity":48,
+        "capacity":3,
         "color":"#F06292",
         "seats":[
-          {"id":"0958e193-7013-4075-9e5c-97013fd4a980","label":"VIP-A01","rowIndex":0,"colIndex":0,"status":"AVAILABLE","lockedBy":null,"lockedUntil":null
+          {"id":"0958e193-7013-4075-9e5c-97013fd4a980","label":"VIP-1","rowIndex":0,"colIndex":0,"displayOrder":1,"status":"AVAILABLE","lockedBy":null,"lockedUntil":null
           },
           ...
         ]
@@ -1022,6 +1023,8 @@ samples:
   "is_private": false,
   "theme": "minimal",
   "status": "PUBLISHED",
+  "seat_map_rows": 10,
+  "seat_map_cols": 20,
   "categories":[
     {
       "id":"58881584-8d6b-41aa-9595-e990f5e57a82",
@@ -1033,11 +1036,13 @@ samples:
   "zones": [
     {
       "name": "VIP",
-      "rows": 2,
-      "cols": 4,
+      "zone_type": "ASSIGNED",
       "price": 1500000,
       "color": "#d4af37",
-      "capacity": 8
+      "seats": [
+        { "label": "VIP-1", "row_index": 0, "col_index": 0, "display_order": 1 },
+        { "label": "VIP-2", "row_index": 0, "col_index": 2, "display_order": 2 }
+      ]
     }
   ]
 }
@@ -1075,6 +1080,8 @@ samples:
   "is_private": false,
   "theme": "minimal",
   "status": "PUBLISHED",
+  "seat_map_rows": 10,
+  "seat_map_cols": 20,
   "categories": [
     {
       "id": "58881584-8d6b-41aa-9595-e990f5e57a82",
@@ -1087,10 +1094,13 @@ samples:
   "zones": [
     {
       "name": "VIP",
-      "rows": 2,
-      "cols": 4,
+      "zone_type": "ASSIGNED",
       "price": 1500000,
       "color": "#d4af37",
+      "seats": [
+        { "label": "VIP-1", "row_index": 0, "col_index": 0, "display_order": 1 },
+        { "label": "VIP-2", "row_index": 0, "col_index": 2, "display_order": 2 }
+      ]
     }
   ],
   "seating_type": "ASSIGNED"/"GENERAL_ADMISSION",
@@ -1142,7 +1152,7 @@ Failed (WHEN failed in validate price and ticket price):
 ```json
 {
   "success":false,
-  "error":"[{'type': 'value_error', 'loc': ('body',), 'msg': 'Value error, All zones must have a price of 0 for FREE ticket type', 'input': {'title': 'Test event 2', 'description': 'Main concert night', 'short_description': 'Open-air performance', 'start_time': '2026-06-01T19:00:00Z', 'end_time': '2026-06-01T21:00:00Z', 'venue': 'Central Stadium', 'banner_url': 'https://example.com/banner.jpg', 'is_private': False, 'theme': 'minimal', 'status': 'PUBLISHED', 'categories': ['music', 'technology'], 'zones': [{'name': 'NORMAL', 'rows': 10, 'cols': 14, 'price': 2, 'color': '#d4af37'}], 'seating_type': 'ASSIGNED', 'ticket_type': 'FREE'}, 'ctx': {'error': ValueError('All zones must have a price of 0 for FREE ticket type')}}]"
+  "error":"All zones must have a price of 0 for FREE ticket type"
 }
 ```
 
@@ -1412,12 +1422,13 @@ Success:
     {
       "id": "f4bb2a38-5ecb-4d62-bfb4-2d5f0d19ea48",
       "name": "VIP",
-      "rows": 2,
-      "cols": 4,
-      "capacity": 8,
+      "zoneType": "ASSIGNED",
+      "capacity": 2,
       "price": 1500000,
       "color": "#d4af37",
-      "seats": []
+      "seats": [
+        { "label": "VIP-1", "rowIndex": 0, "colIndex": 0, "displayOrder": 1, "status": "AVAILABLE" }
+      ]
     }
   ]
 }
@@ -1450,11 +1461,13 @@ samples:
 ```json
 {
   "name": "VIP",
-  "rows": 2,
-  "cols": 4,
+  "zone_type": "ASSIGNED",
   "price": 1500000,
   "color": "#d4af37",
-  "capacity": 8
+  "seats": [
+    { "label": "VIP-1", "row_index": 0, "col_index": 0, "display_order": 1 },
+    { "label": "VIP-2", "row_index": 0, "col_index": 2, "display_order": 2 }
+  ]
 }
 ```
 
@@ -1474,12 +1487,13 @@ Success:
   "data": {
     "id": "f4bb2a38-5ecb-4d62-bfb4-2d5f0d19ea48",
     "name": "VIP",
-    "rows": 2,
-    "cols": 4,
-    "capacity": 8,
+    "zoneType": "ASSIGNED",
+    "capacity": 2,
     "price": 1500000,
     "color": "#d4af37",
-    "seats": []
+    "seats": [
+      { "label": "VIP-1", "rowIndex": 0, "colIndex": 0, "displayOrder": 1, "status": "AVAILABLE" }
+    ]
   }
 }
 ```

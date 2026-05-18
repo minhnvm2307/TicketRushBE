@@ -22,6 +22,7 @@ class SeatMapSeatResponse(APIModel):
     label: str
     row_index: int
     col_index: int
+    display_order: int = 0
     status: SeatStatus
     locked_by: UUID | None = None
     locked_until: datetime | None = None
@@ -30,8 +31,9 @@ class SeatMapSeatResponse(APIModel):
 class SeatMapZoneResponse(APIModel):
     id: UUID
     name: str
-    rows: int
-    cols: int
+    zone_type: str
+    rows: int | None = None
+    cols: int | None = None
     capacity: int
     price: float
     color: str
@@ -40,4 +42,6 @@ class SeatMapZoneResponse(APIModel):
 
 class SeatMapResponse(APIModel):
     event_id: UUID
+    seat_map_rows: int | None = None
+    seat_map_cols: int | None = None
     zones: list[SeatMapZoneResponse]

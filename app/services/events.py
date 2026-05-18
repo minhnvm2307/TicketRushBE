@@ -3,12 +3,13 @@ from re import sub
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictError, ExpiredEventError
+from app.models.enums import SeatingType, TicketType, ZoneType
 from app.models.event import Category, Event
 from app.models.seat import Seat, SeatZone
 from app.repositories.event import EventRepository
 from app.schemas.event import CategoryResponse, EventCreateRequest, EventResponse, EventUpdateRequest
 from app.services.seats import SeatService
-from app.services.embedding import generate_embedding
+from app.services.embedding import generate_embedding_or_zero
 
 
 
@@ -60,7 +61,7 @@ class EventService:
             return 0
 
         for event in events:
-            event.embedding = generate_embedding(self._build_embedding_text(event.title, event.description))
+            event.embedding = generate_embedding_or_zero(self._build_embedding_text(event.title, event.description))
 
         self.db.commit()
         return len(events)
@@ -86,7 +87,7 @@ class EventService:
             slug=slugify(payload.title),
             description=payload.description,
             short_description=payload.short_description,
-            embedding=generate_embedding(self._build_embedding_text(payload.title, payload.description)),
+            embedding=generate_embedding_or_zero(self._build_embedding_text(payload.title, payload.description)),
             start_time=payload.start_time,
             end_time=payload.end_time,
             venue=payload.venue,
@@ -96,9 +97,19 @@ class EventService:
             status=payload.status,
             seating_type=payload.seating_type,
             ticket_type=payload.ticket_type,
+            max_capacity=payload.max_capacity,
+            seat_map_rows=payload.seat_map_rows,
+            seat_map_cols=payload.seat_map_cols,
         )
         self.repo.create(event)
         self._replace_categories(event, payload)
+        self._validate_zone_prices(payload.ticket_type, payload.zones)
+        self._validate_layout_payload(
+            payload.seating_type,
+            payload.seat_map_rows,
+            payload.seat_map_cols,
+            payload.zones,
+        )
         self._replace_zones(event, payload.zones)
         self.db.commit()
         self.db.refresh(event)
@@ -120,7 +131,7 @@ class EventService:
         event.description = next_description
         if payload.short_description is not None:
             event.short_description = payload.short_description
-        event.embedding = generate_embedding(self._build_embedding_text(next_title, next_description))
+        event.embedding = generate_embedding_or_zero(self._build_embedding_text(next_title, next_description))
         if payload.start_time is not None:
             event.start_time = payload.start_time
         if payload.end_time is not None:
@@ -137,13 +148,27 @@ class EventService:
             event.status = payload.status
         if payload.seating_type is not None:
             event.seating_type = payload.seating_type
+            if event.seating_type == SeatingType.GENERAL_ADMISSION:
+                event.seat_map_rows = None
+                event.seat_map_cols = None
         if payload.ticket_type is not None:
             event.ticket_type = payload.ticket_type
         if payload.max_capacity is not None:
             event.max_capacity = payload.max_capacity
+        if payload.seat_map_rows is not None:
+            event.seat_map_rows = payload.seat_map_rows
+        if payload.seat_map_cols is not None:
+            event.seat_map_cols = payload.seat_map_cols
         if payload.categories is not None or payload.category_ids is not None:
             self._replace_categories(event, payload)
         if payload.zones is not None:
+            self._validate_zone_prices(event.ticket_type, payload.zones)
+            self._validate_layout_payload(
+                event.seating_type,
+                event.seat_map_rows,
+                event.seat_map_cols,
+                payload.zones,
+            )
             self._replace_zones(event, payload.zones)
         self.db.commit()
         return self.repo.get_by_id(event_id)
@@ -177,7 +202,9 @@ class EventService:
             zones=[SeatService.serialize_zone(zone) for zone in event.zones],
             seating_type=event.seating_type,
             ticket_type=event.ticket_type,
-            max_capacity=event.max_capacity
+            max_capacity=event.max_capacity,
+            seat_map_rows=event.seat_map_rows,
+            seat_map_cols=event.seat_map_cols,
         )
 
     def _replace_categories(self, event: Event, payload: EventCreateRequest) -> None:
@@ -210,17 +237,68 @@ class EventService:
         event.zones.clear()
         self.db.flush()
         for zone_payload in zones:
+            zone_type = (
+                ZoneType.GENERAL_ADMISSION
+                if event.seating_type == SeatingType.GENERAL_ADMISSION
+                else zone_payload.zone_type
+            )
+            is_assigned_zone = zone_type == ZoneType.ASSIGNED
             zone = SeatZone(
                 name=zone_payload.name,
-                rows=zone_payload.rows,
-                cols=zone_payload.cols,
-                price=zone_payload.price,
-                capacity=zone_payload.capacity or (zone_payload.rows * zone_payload.cols),
+                zone_type=zone_type,
+                price=zone_payload.price or 0,
+                capacity=len(zone_payload.seats) if is_assigned_zone else (zone_payload.capacity or event.max_capacity or 1),
                 color=zone_payload.color,
             )
-            for row in range(1, zone_payload.rows + 1):
-                for col in range(1, zone_payload.cols + 1):
-                    label = f"{zone_payload.name.upper().replace(' ', '_')}-{chr(64 + row)}{col:02d}"
-                    zone.seats.append(Seat(label=label, row_index=row - 1, col_index=col - 1))
+            if is_assigned_zone:
+                for seat_payload in zone_payload.seats:
+                    zone.seats.append(
+                        Seat(
+                            event_id=event.id,
+                            label=seat_payload.label.strip(),
+                            row_index=seat_payload.row_index,
+                            col_index=seat_payload.col_index,
+                            display_order=seat_payload.display_order,
+                        )
+                    )
             event.zones.append(zone)
         self.db.flush()
+
+    def _validate_layout_payload(self, seating_type, seat_map_rows, seat_map_cols, zones) -> None:
+        if seating_type != SeatingType.ASSIGNED:
+            return
+        if seat_map_rows is None or seat_map_cols is None:
+            raise ValueError("seat_map_rows and seat_map_cols are required for assigned seating")
+        if not zones:
+            raise ValueError("assigned seating events require at least one zone")
+
+        seen_positions: set[tuple[int, int]] = set()
+        seen_labels: set[str] = set()
+        has_assigned_seat = False
+        for zone in zones:
+            if zone.zone_type != ZoneType.ASSIGNED:
+                continue
+            if not zone.seats:
+                raise ValueError("each assigned zone must have at least one seat")
+            for seat in zone.seats:
+                has_assigned_seat = True
+                if seat.row_index >= seat_map_rows or seat.col_index >= seat_map_cols:
+                    raise ValueError("seat coordinates must be inside the seat map bounds")
+                position = (seat.row_index, seat.col_index)
+                if position in seen_positions:
+                    raise ValueError("duplicate seat position in event")
+                seen_positions.add(position)
+                label = seat.label.strip()
+                if label in seen_labels:
+                    raise ValueError("duplicate seat label in event")
+                seen_labels.add(label)
+        if not has_assigned_seat:
+            raise ValueError("assigned seating events require at least one seat")
+
+    def _validate_zone_prices(self, ticket_type, zones) -> None:
+        for zone in zones:
+            price = zone.price or 0
+            if ticket_type == TicketType.FREE and price != 0:
+                raise ValueError("All zones must have a price of 0 for FREE ticket type")
+            if ticket_type == TicketType.PAID and price <= 0:
+                raise ValueError("All zones must have a positive price for PAID ticket type")

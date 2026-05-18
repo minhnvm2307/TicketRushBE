@@ -128,8 +128,7 @@ class EventRepository:
     def has_sold_seats(self, event_id: str) -> bool:
         stmt = (
             select(func.count(Seat.id))
-            .join(SeatZone, Seat.zone_id == SeatZone.id)
-            .where(SeatZone.event_id == event_id, Seat.status == SeatStatus.SOLD)
+            .where(Seat.event_id == event_id, Seat.status == SeatStatus.SOLD)
         )
         return bool(self.db.scalar(stmt))
 

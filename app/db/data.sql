@@ -466,7 +466,9 @@ INSERT INTO public.events (
     status,
     ticket_type,
     seating_type,
-    max_capacity
+    max_capacity,
+    seat_map_rows,
+    seat_map_cols
 )
 SELECT
     users.id,
@@ -483,7 +485,9 @@ SELECT
     'PUBLISHED',
     seed_events.ticket_type,
     seed_events.seating_type,
-    seed_events.max_capacity
+    seed_events.max_capacity,
+    CASE WHEN seed_events.seating_type = 'ASSIGNED' THEN 14 ELSE NULL END,
+    CASE WHEN seed_events.seating_type = 'ASSIGNED' THEN 24 ELSE NULL END
 FROM seed_events
 JOIN public.users ON users.email = seed_events.host_email
 ON CONFLICT (slug) DO NOTHING;
@@ -505,8 +509,6 @@ INSERT INTO public.seat_zones (
     event_id,
     name,
     zone_type,
-    rows,
-    cols,
     capacity,
     price,
     color
@@ -515,8 +517,6 @@ SELECT
     events.id,
     'Free Pass',
     'GENERAL_ADMISSION',
-    NULL,
-    NULL,
     seed_events.max_capacity,
     0,
     '#4CAF50'
@@ -531,34 +531,33 @@ ON CONFLICT (event_id, name) DO NOTHING;
 CREATE TEMP TABLE paid_zone_specs (
     event_slug VARCHAR(255) NOT NULL,
     zone_name VARCHAR(100) NOT NULL,
+    zone_order SMALLINT NOT NULL,
     rows SMALLINT NOT NULL,
     cols SMALLINT NOT NULL,
     price NUMERIC(12,2) NOT NULL,
     color VARCHAR(20) NOT NULL
 );
 
-INSERT INTO paid_zone_specs (event_slug, zone_name, rows, cols, price, color) VALUES
-    ('python-con-vietnam', 'VIP', 4, 6, 1200000.00, '#D4AF37'),
-    ('python-con-vietnam', 'Standard', 8, 10, 450000.00, '#5C6BC0'),
-    ('vpop-night-2026', 'VIP', 6, 8, 1800000.00, '#F06292'),
-    ('vpop-night-2026', 'Fan Zone', 10, 12, 650000.00, '#BA68C8'),
-    ('jazz-under-stars', 'Front Row', 4, 5, 900000.00, '#8D6E63'),
-    ('jazz-under-stars', 'Balcony', 5, 8, 450000.00, '#90A4AE'),
-    ('rock-fire-danang', 'Pit A', 6, 10, 1100000.00, '#EF5350'),
-    ('rock-fire-danang', 'Pit B', 8, 12, 550000.00, '#FF7043'),
-    ('rap-viet-tour', 'Gold', 6, 8, 1500000.00, '#FFB300'),
-    ('rap-viet-tour', 'Silver', 10, 10, 700000.00, '#78909C'),
-    ('fintech-summit-vn', 'Executive', 4, 6, 1000000.00, '#26A69A'),
-    ('fintech-summit-vn', 'Standard', 8, 8, 380000.00, '#42A5F5'),
-    ('film-festival-hanoi', 'Premiere', 5, 6, 750000.00, '#7E57C2'),
-    ('film-festival-hanoi', 'Standard', 8, 10, 280000.00, '#78909C');
+INSERT INTO paid_zone_specs (event_slug, zone_name, zone_order, rows, cols, price, color) VALUES
+    ('python-con-vietnam', 'VIP', 1, 4, 6, 1200000.00, '#D4AF37'),
+    ('python-con-vietnam', 'Standard', 2, 8, 10, 450000.00, '#5C6BC0'),
+    ('vpop-night-2026', 'VIP', 1, 6, 8, 1800000.00, '#F06292'),
+    ('vpop-night-2026', 'Fan Zone', 2, 10, 12, 650000.00, '#BA68C8'),
+    ('jazz-under-stars', 'Front Row', 1, 4, 5, 900000.00, '#8D6E63'),
+    ('jazz-under-stars', 'Balcony', 2, 5, 8, 450000.00, '#90A4AE'),
+    ('rock-fire-danang', 'Pit A', 1, 6, 10, 1100000.00, '#EF5350'),
+    ('rock-fire-danang', 'Pit B', 2, 8, 12, 550000.00, '#FF7043'),
+    ('rap-viet-tour', 'Gold', 1, 6, 8, 1500000.00, '#FFB300'),
+    ('rap-viet-tour', 'Silver', 2, 10, 10, 700000.00, '#78909C'),
+    ('fintech-summit-vn', 'Executive', 1, 4, 6, 1000000.00, '#26A69A'),
+    ('fintech-summit-vn', 'Standard', 2, 8, 8, 380000.00, '#42A5F5'),
+    ('film-festival-hanoi', 'Premiere', 1, 5, 6, 750000.00, '#7E57C2'),
+    ('film-festival-hanoi', 'Standard', 2, 8, 10, 280000.00, '#78909C');
 
 INSERT INTO public.seat_zones (
     event_id,
     name,
     zone_type,
-    rows,
-    cols,
     capacity,
     price,
     color
@@ -567,8 +566,6 @@ SELECT
     events.id,
     paid_zone_specs.zone_name,
     'ASSIGNED',
-    paid_zone_specs.rows,
-    paid_zone_specs.cols,
     paid_zone_specs.rows * paid_zone_specs.cols,
     paid_zone_specs.price,
     paid_zone_specs.color
@@ -580,26 +577,33 @@ ON CONFLICT (event_id, name) DO NOTHING;
 -- 7. GENERATED SEATS FOR PAID EVENTS
 -- ==============================================================================
 INSERT INTO public.seats (
+    event_id,
     zone_id,
     label,
     row_index,
     col_index,
+    display_order,
     status
 )
 SELECT
+    seat_zones.event_id,
     seat_zones.id,
     LEFT(UPPER(REGEXP_REPLACE(seat_zones.name, '[^A-Za-z0-9]+', '', 'g')), 8)
         || '-' || CHR(64 + row_no) || LPAD(col_no::TEXT, 2, '0'),
     row_no - 1,
-    col_no - 1,
+    ((paid_zone_specs.zone_order - 1) * 12) + col_no - 1,
+    ((row_no - 1) * paid_zone_specs.cols) + col_no,
     'AVAILABLE'
 FROM public.seat_zones
 JOIN public.events ON public.events.id = seat_zones.event_id
-CROSS JOIN LATERAL GENERATE_SERIES(1, seat_zones.rows) AS row_no
-CROSS JOIN LATERAL GENERATE_SERIES(1, seat_zones.cols) AS col_no
+JOIN paid_zone_specs
+  ON paid_zone_specs.event_slug = public.events.slug
+ AND paid_zone_specs.zone_name = seat_zones.name
+CROSS JOIN LATERAL GENERATE_SERIES(1, paid_zone_specs.rows) AS row_no
+CROSS JOIN LATERAL GENERATE_SERIES(1, paid_zone_specs.cols) AS col_no
 WHERE public.events.ticket_type = 'PAID'
   AND seat_zones.zone_type = 'ASSIGNED'
-ON CONFLICT (zone_id, row_index, col_index) DO NOTHING;
+ON CONFLICT (event_id, row_index, col_index) DO NOTHING;
 
 DROP TABLE seed_events;
 DROP TABLE paid_zone_specs;

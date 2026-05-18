@@ -23,6 +23,16 @@ def create_event(payload: EventCreateRequest, db: DbSession, user: AdminUser):
     return success_response(EventService(db).serialize(event), status_code=status.HTTP_201_CREATED)
 
 
+@router.get("/events/{event_id}")
+def get_event(event_id: str, db: DbSession, user: AdminUser):
+    event = EventService(db).repo.get_by_id(event_id)
+    if not event:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="event not found")
+    if str(event.host_id) != str(user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden")
+    return success_response(EventService(db).serialize(event))
+
+
 @router.put("/events/{event_id}")
 def update_event(event_id: str, payload: EventUpdateRequest, db: DbSession, user: AdminUser):
     try:

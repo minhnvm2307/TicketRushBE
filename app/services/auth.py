@@ -79,6 +79,7 @@ class AuthService:
     def request_password_reset(self, payload: ForgotPasswordRequest) -> None:
         email = self._normalize_email(payload.email)
         user = self.users.get_by_email(email)
+        print(f"Password reset requested for email: {email}, user found: {user is not None}")
         if not user:
             return
 
