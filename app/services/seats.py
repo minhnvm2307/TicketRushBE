@@ -125,6 +125,7 @@ class SeatService:
                 self.interactions.add(
                     UserEventInteraction(user_id=user_id, event_id=event_id, interaction_type=InteractionType.HOLD)
                 )
+                self.db.flush()
             self.db.commit()
             hold_index_key = self._user_hold_index_key(user_id, event_id)
             self.redis.zadd(hold_index_key, {str(seat_id): locked_until.timestamp()})
@@ -174,6 +175,7 @@ class SeatService:
                 seat.status = SeatStatus.AVAILABLE
                 seat.locked_by = None
                 seat.locked_until = None
+                self.db.flush()
             self.db.commit()
         except Exception:
             self.db.rollback()

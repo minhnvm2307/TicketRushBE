@@ -1,7 +1,7 @@
 services:
   api:
     image: minhnvm2307/ticketrush:latest
-    # build: .
+    build: .
     env_file:
       - .env
     ports:

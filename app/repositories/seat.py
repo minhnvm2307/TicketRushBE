@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.enums import SeatStatus, ZoneType
 from app.models.seat import Seat, SeatZone
@@ -15,7 +15,12 @@ class SeatRepository:
         return self.db.get(Seat, seat_id)
 
     def get_by_id_for_update(self, seat_id: str) -> Seat | None:
-        stmt = select(Seat).where(Seat.id == seat_id).options(joinedload(Seat.zone))
+        stmt = (
+            select(Seat)
+            .where(Seat.id == seat_id)
+            .options(selectinload(Seat.zone))
+            .with_for_update()
+        )
         return self.db.scalar(stmt)
 
     def get_many_by_ids(self, seat_ids: list[str]) -> list[Seat]:
@@ -23,7 +28,12 @@ class SeatRepository:
         return list(self.db.scalars(stmt).unique().all())
 
     def get_many_by_ids_for_update(self, seat_ids: list[str]) -> list[Seat]:
-        stmt = select(Seat).where(Seat.id.in_(seat_ids)).options(joinedload(Seat.zone))
+        stmt = (
+            select(Seat)
+            .where(Seat.id.in_(seat_ids))
+            .options(selectinload(Seat.zone))
+            .with_for_update()
+        )
         return list(self.db.scalars(stmt).unique().all())
 
     def get_general_admission_zone_for_event(self, event_id: str) -> SeatZone | None:
@@ -41,7 +51,18 @@ class SeatRepository:
             .group_by(Seat.status)
         )
         rows = self.db.execute(stmt).all()
-        return {status.value if isinstance(status, SeatStatus) else status: count for status, count in rows}
+        return {
+            (status.value if isinstance(status, SeatStatus) else str(status)).upper(): count
+            for status, count in rows
+        }
+
+    def count_seats_by_event(self, event_id: str) -> int:
+        stmt = select(func.count(Seat.id)).where(Seat.event_id == event_id)
+        return int(self.db.scalar(stmt) or 0)
+
+    def capacity_by_event(self, event_id: str) -> int:
+        stmt = select(func.coalesce(func.sum(SeatZone.capacity), 0)).where(SeatZone.event_id == event_id)
+        return int(self.db.scalar(stmt) or 0)
 
     def list_by_event(self, event_id: str) -> list[SeatZone]:
         stmt = (

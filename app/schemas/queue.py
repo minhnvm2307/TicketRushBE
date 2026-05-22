@@ -7,3 +7,5 @@ class QueueStatus(BaseModel):
     has_access: bool
     notice: str | None = None
     session_expires_in: int | None = None
+    queue_position: int | None = None
+    queue_size: int = 0

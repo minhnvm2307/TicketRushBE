@@ -143,6 +143,7 @@ class CheckoutService:
                             user_id=user_id, event_id=seat.zone.event_id, interaction_type=InteractionType.PURCHASE
                         )
                     )
+                self.db.flush()
             self.db.commit()
         except IntegrityError as exc:
             self.db.rollback()
